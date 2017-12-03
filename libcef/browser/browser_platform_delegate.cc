@@ -205,6 +205,36 @@ void CefBrowserPlatformDelegate::AccessibilityLocationChangesReceived(
   NOTREACHED();
 }
 
+gfx::NativeView CefBrowserPlatformDelegate::GetHostView() const {
+  NOTREACHED();
+  return gfx::NativeView();
+}
+
+gfx::Point CefBrowserPlatformDelegate::GetDialogPosition(
+    const gfx::Size& size) {
+  NOTREACHED();
+  return gfx::Point();
+}
+
+gfx::Size CefBrowserPlatformDelegate::GetMaximumDialogSize() {
+  NOTREACHED();
+  return gfx::Size();
+}
+
+void CefBrowserPlatformDelegate::OnViewWasResized() {
+  NOTREACHED();
+}
+
+void CefBrowserPlatformDelegate::AddObserver(
+    web_modal::ModalDialogHostObserver* observer) {
+  NOTREACHED();
+}
+
+void CefBrowserPlatformDelegate::RemoveObserver(
+    web_modal::ModalDialogHostObserver* observer) {
+  NOTREACHED();
+}
+
 // static
 int CefBrowserPlatformDelegate::TranslateModifiers(uint32 cef_modifiers) {
   int webkit_modifiers = 0;

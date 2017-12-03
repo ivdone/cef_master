@@ -26,6 +26,8 @@
 #include "base/observer_list.h"
 #include "base/strings/string16.h"
 #include "base/synchronization/lock.h"
+#include "components/web_modal/web_contents_modal_dialog_host.h"
+#include "components/web_modal/web_contents_modal_dialog_manager_delegate.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/web_contents.h"
@@ -77,11 +79,14 @@ class SiteInstance;
 // WebContentsObserver::routing_id() when sending IPC messages.
 //
 // NotificationObserver: Interface for observing post-processed notifications.
-class CefBrowserHostImpl : public CefBrowserHost,
-                           public CefBrowser,
-                           public content::WebContentsDelegate,
-                           public content::WebContentsObserver,
-                           public content::NotificationObserver {
+class CefBrowserHostImpl
+    : public CefBrowserHost,
+      public CefBrowser,
+      public content::WebContentsDelegate,
+      public content::WebContentsObserver,
+      public content::NotificationObserver,
+      public web_modal::WebContentsModalDialogManagerDelegate,
+      public web_modal::WebContentsModalDialogHost {
  public:
   // Used for handling the response to command messages.
   class CommandResponseHandler : public virtual CefBaseRefCounted {
@@ -185,6 +190,15 @@ class CefBrowserHostImpl : public CefBrowserHost,
                      uint32 max_image_size,
                      bool bypass_cache,
                      CefRefPtr<CefDownloadImageCallback> callback) override;
+  bool IsWebContentsVisible(content::WebContents* web_contents) override;
+  web_modal::WebContentsModalDialogHost* GetWebContentsModalDialogHost()
+      override;
+  gfx::NativeView GetHostView() const override;
+  gfx::Point GetDialogPosition(const gfx::Size& size) override;
+  gfx::Size GetMaximumDialogSize() override;
+  void AddObserver(web_modal::ModalDialogHostObserver* observer) override;
+  void RemoveObserver(web_modal::ModalDialogHostObserver* observer) override;
+  void OnViewWasResized();
   void Print() override;
   void PrintToPDF(const CefString& path,
                   const CefPdfPrintSettings& settings,
@@ -723,6 +737,9 @@ class CefBrowserHostImpl : public CefBrowserHost,
   extensions::ExtensionHost* extension_host_ = nullptr;
   CefRefPtr<CefExtension> extension_;
   bool is_background_host_ = false;
+
+  // Used to notify WebContentsModalDialog
+  base::ObserverList<web_modal::ModalDialogHostObserver> observer_list_;
 
   IMPLEMENT_REFCOUNTING(CefBrowserHostImpl);
   DISALLOW_COPY_AND_ASSIGN(CefBrowserHostImpl);

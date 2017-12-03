@@ -12,7 +12,9 @@
 
 #include "base/command_line.h"
 #include "chrome/browser/net/chrome_net_log_helper.h"
+#include "chrome/browser/printing/background_printing_manager.h"
 #include "chrome/browser/printing/print_job_manager.h"
+#include "chrome/browser/printing/print_preview_dialog_controller.h"
 #include "components/net_log/chrome_net_log.h"
 #include "content/public/common/content_switches.h"
 #include "ui/message_center/message_center.h"
@@ -49,7 +51,8 @@ void ChromeBrowserProcessStub::OnContextInitialized() {
   print_job_manager_.reset(new printing::PrintJobManager());
   profile_manager_.reset(new ChromeProfileManagerStub());
   event_router_forwarder_ = new extensions::EventRouterForwarder();
-
+  print_preview_dialog_controller_ =
+      printing::PrintPreviewDialogController::GetInstance();
   context_initialized_ = true;
 }
 
@@ -64,6 +67,7 @@ void ChromeBrowserProcessStub::Shutdown() {
   // tasks to run once teardown has started.
   print_job_manager_->Shutdown();
   print_job_manager_.reset(NULL);
+  print_preview_dialog_controller_ = NULL;
 
   profile_manager_.reset();
   event_router_forwarder_ = nullptr;
@@ -218,14 +222,27 @@ printing::PrintJobManager* ChromeBrowserProcessStub::print_job_manager() {
 
 printing::PrintPreviewDialogController*
 ChromeBrowserProcessStub::print_preview_dialog_controller() {
-  NOTREACHED();
-  return NULL;
+  if (!print_preview_dialog_controller_.get())
+    CreatePrintPreviewDialogController();
+  return print_preview_dialog_controller_.get();
+}
+
+void ChromeBrowserProcessStub::CreatePrintPreviewDialogController() {
+  DCHECK(!print_preview_dialog_controller_);
+  print_preview_dialog_controller_ =
+      new printing::PrintPreviewDialogController();
 }
 
 printing::BackgroundPrintingManager*
 ChromeBrowserProcessStub::background_printing_manager() {
-  NOTREACHED();
-  return NULL;
+  if (!background_printing_manager_.get())
+    CreateBackgroundPrintingManager();
+  return background_printing_manager_.get();
+}
+
+void ChromeBrowserProcessStub::CreateBackgroundPrintingManager() {
+  DCHECK(!background_printing_manager_);
+  background_printing_manager_.reset(new printing::BackgroundPrintingManager());
 }
 
 IntranetRedirectDetector*

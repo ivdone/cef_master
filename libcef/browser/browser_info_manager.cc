@@ -339,7 +339,9 @@ void CefBrowserInfoManager::DestroyAllBrowsers() {
     BrowserInfoList::iterator it = list.begin();
     for (; it != list.end(); ++it) {
       CefRefPtr<CefBrowserHostImpl> browser = (*it)->browser();
-      DCHECK(browser.get());
+      // Commented this line because the browser will be null when used by print
+      // preview.
+      // DCHECK(browser.get());
       if (browser.get()) {
         // DestroyBrowser will call RemoveBrowserInfo.
         browser->DestroyBrowser();

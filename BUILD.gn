@@ -137,7 +137,8 @@ if (is_win) {
 
 # Set ENABLE_PRINTING=1 ENABLE_BASIC_PRINTING=1.
 assert(enable_basic_printing)
-assert(!enable_print_preview)
+assert(enable_print_preview)
+assert(!enable_service_discovery)
 
 # Enable support for Widevine CDM.
 assert(enable_widevine)
@@ -462,8 +463,6 @@ static_library("libcef_static") {
     "libcef/browser/printing/printing_message_filter.h",
     "libcef/browser/printing/print_view_manager.cc",
     "libcef/browser/printing/print_view_manager.h",
-    "libcef/browser/printing/print_view_manager_base.cc",
-    "libcef/browser/printing/print_view_manager_base.h",
     "libcef/browser/process_util_impl.cc",
     "libcef/browser/resource_context.cc",
     "libcef/browser/resource_context.h",
@@ -605,10 +604,8 @@ static_library("libcef_static") {
     "libcef/utility/content_utility_client.cc",
     "libcef/utility/content_utility_client.h",
 
-    # Part of //chrome/renderer. Not included by that target because CEF builds
-    # with enable_print_preview=0.
-    "//chrome/renderer/pepper/chrome_pdf_print_client.cc",
-    "//chrome/renderer/pepper/chrome_pdf_print_client.h",
+    "//chrome/browser/local_discovery/service_discovery_device_lister.cc",
+    "//chrome/browser/local_discovery/service_discovery_device_lister.h",
   ]
 
   configs += [

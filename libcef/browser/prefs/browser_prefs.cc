@@ -15,6 +15,7 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/task_scheduler/post_task.h"
 #include "base/values.h"
+#include "chrome/browser/download/download_prefs.h"
 #include "chrome/browser/net/prediction_options.h"
 #include "chrome/browser/plugins/plugin_info_host_impl.h"
 #include "chrome/browser/prefs/chrome_command_line_pref_store.h"
@@ -23,6 +24,7 @@
 #include "chrome/browser/supervised_user/supervised_user_settings_service.h"
 #include "chrome/browser/supervised_user/supervised_user_settings_service_factory.h"
 #include "chrome/browser/themes/theme_service.h"
+#include "chrome/browser/ui/webui/print_preview/sticky_settings.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/grit/locale_settings.h"
@@ -157,6 +159,13 @@ std::unique_ptr<PrefService> CreatePrefService(Profile* profile,
   // Print preferences.
   // Based on ProfileImpl::RegisterProfilePrefs.
   registry->RegisterBooleanPref(prefs::kPrintingEnabled, true);
+  registry->RegisterBooleanPref(prefs::kPrintPreviewDisabled, false);
+  registry->RegisterStringPref(
+      prefs::kPrintPreviewDefaultDestinationSelectionRules, std::string());
+  registry->RegisterBooleanPref(prefs::kCloudPrintSubmitEnabled, false);
+
+  DownloadPrefs::RegisterProfilePrefs(registry.get());
+  printing::StickySettings::RegisterProfilePrefs(registry.get());
 
   // Spell checking preferences.
   // Modify defaults from SpellcheckServiceFactory::RegisterProfilePrefs.
@@ -200,7 +209,14 @@ std::unique_ptr<PrefService> CreatePrefService(Profile* profile,
     registry->RegisterListPref("test.list");
     registry->RegisterDictionaryPref("test.dict");
   }
-
+// From Chrome::RegisterBrowserUserPrefs.
+#if !defined(OS_CHROMEOS) && !defined(OS_ANDROID)
+  registry->RegisterBooleanPref(prefs::kPrintPreviewUseSystemDefaultPrinter,
+                                false);
+#else
+  registry->RegisterBooleanPref(prefs::kPrintPreviewUseSystemDefaultPrinter,
+                                true);
+#endif
   // Build the PrefService that manages the PrefRegistry and PrefStores.
   return factory.CreateSyncable(registry.get());
 }
