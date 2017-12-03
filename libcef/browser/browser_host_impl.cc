@@ -44,9 +44,13 @@
 #include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/command_line.h"
+#include "chrome/browser/platform_util.h"
 #include "chrome/browser/spellchecker/spellcheck_factory.h"
 #include "chrome/browser/spellchecker/spellcheck_service.h"
 #include "chrome/browser/ui/prefs/prefs_tab_helper.h"
+#include "components/web_modal/modal_dialog_host.h"
+#include "components/web_modal/web_contents_modal_dialog_host.h"
+#include "components/web_modal/web_contents_modal_dialog_manager.h"
 #include "components/zoom/zoom_controller.h"
 #include "content/browser/gpu/compositor_util.h"
 #include "content/browser/web_contents/web_contents_impl.h"
@@ -779,13 +783,50 @@ void CefBrowserHostImpl::DownloadImage(
       bypass_cache, base::Bind(OnDownloadImage, max_image_size, callback));
 }
 
+bool CefBrowserHostImpl::IsWebContentsVisible(
+    content::WebContents* web_contents) {
+  return platform_util::IsVisible(web_contents->GetNativeView());
+}
+
+web_modal::WebContentsModalDialogHost*
+CefBrowserHostImpl::GetWebContentsModalDialogHost() {
+  return this;
+}
+
+gfx::NativeView CefBrowserHostImpl::GetHostView() const {
+  return platform_delegate_->GetHostView();
+}
+
+gfx::Point CefBrowserHostImpl::GetDialogPosition(const gfx::Size& size) {
+  return platform_delegate_->GetDialogPosition(size);
+}
+
+gfx::Size CefBrowserHostImpl::GetMaximumDialogSize() {
+  return platform_delegate_->GetMaximumDialogSize();
+}
+
+void CefBrowserHostImpl::OnViewWasResized() {
+  platform_delegate_->OnViewWasResized();
+}
+
+void CefBrowserHostImpl::AddObserver(
+    web_modal::ModalDialogHostObserver* observer) {
+  platform_delegate_->AddObserver(observer);
+}
+
+void CefBrowserHostImpl::RemoveObserver(
+    web_modal::ModalDialogHostObserver* observer) {
+  platform_delegate_->RemoveObserver(observer);
+}
+
 void CefBrowserHostImpl::Print() {
   if (CEF_CURRENTLY_ON_UIT()) {
     content::WebContents* actionable_contents = GetActionableWebContents();
     if (!actionable_contents)
       return;
     printing::CefPrintViewManager::FromWebContents(actionable_contents)
-        ->PrintNow(actionable_contents->GetRenderViewHost()->GetMainFrame());
+        ->PrintPreviewNow(
+            actionable_contents->GetRenderViewHost()->GetMainFrame(), false);
   } else {
     CEF_POST_TASK(CEF_UIT, base::Bind(&CefBrowserHostImpl::Print, this));
   }
@@ -1077,6 +1118,7 @@ void CefBrowserHostImpl::WasResized() {
     return;
 
   platform_delegate_->WasResized();
+  OnViewWasResized();
 }
 
 void CefBrowserHostImpl::WasHidden(bool hidden) {
@@ -2516,6 +2558,8 @@ void CefBrowserHostImpl::ResizeDueToAutoResize(content::WebContents* source,
   }
 
   UpdatePreferredSize(source, new_size);
+  for (auto& observer : observer_list_)
+    observer.OnPositionRequiresUpdate();
 }
 
 void CefBrowserHostImpl::RequestMediaAccessPermission(
@@ -3122,7 +3166,10 @@ CefBrowserHostImpl::CefBrowserHostImpl(
 
   PrefsTabHelper::CreateForWebContents(web_contents_.get());
   printing::CefPrintViewManager::CreateForWebContents(web_contents_.get());
-
+  web_modal::WebContentsModalDialogManager::CreateForWebContents(
+      web_contents_.get());
+  web_modal::WebContentsModalDialogManager::FromWebContents(web_contents_.get())
+      ->SetDelegate(this);
   if (extensions::ExtensionsEnabled()) {
     extensions::CefExtensionWebContentsObserver::CreateForWebContents(
         web_contents_.get());

@@ -1,0 +1,51 @@
+diff --git chrome/browser/ui/webui/constrained_web_dialog_ui.cc chrome/browser/ui/webui/constrained_web_dialog_ui.cc
+index 1ace21b4d8ab..d218a98e4eff 100644
+--- chrome/browser/ui/webui/constrained_web_dialog_ui.cc
++++ chrome/browser/ui/webui/constrained_web_dialog_ui.cc
+@@ -27,6 +27,8 @@
+ #include "chrome/browser/extensions/tab_helper.h"
+ #endif
+ 
++#include "cef/libcef/features/features.h"
++
+ using content::RenderFrameHost;
+ using content::RenderViewHost;
+ using content::WebContents;
+@@ -56,9 +58,12 @@ class ConstrainedWebDialogDelegateUserData
+ 
+ ConstrainedWebDialogUI::ConstrainedWebDialogUI(content::WebUI* web_ui)
+     : WebUIController(web_ui) {
++#if BUILDFLAG(ENABLE_CEF)
++#else
+ #if BUILDFLAG(ENABLE_EXTENSIONS)
+   extensions::TabHelper::CreateForWebContents(web_ui->GetWebContents());
+ #endif
++#endif
+ }
+ 
+ ConstrainedWebDialogUI::~ConstrainedWebDialogUI() {
+diff --git chrome/browser/ui/webui/print_preview/printer_handler.cc chrome/browser/ui/webui/print_preview/printer_handler.cc
+index 945361702f89..c7df205443b4 100644
+--- chrome/browser/ui/webui/print_preview/printer_handler.cc
++++ chrome/browser/ui/webui/print_preview/printer_handler.cc
+@@ -5,6 +5,7 @@
+ #include "chrome/browser/ui/webui/print_preview/printer_handler.h"
+ 
+ #include "build/buildflag.h"
++#include "base/memory/ptr_util.h"
+ #include "chrome/browser/ui/webui/print_preview/extension_printer_handler.h"
+ #include "chrome/browser/ui/webui/print_preview/pdf_printer_handler.h"
+ #include "chrome/common/features.h"
+diff --git ui/shell_dialogs/base_shell_dialog_win.cc ui/shell_dialogs/base_shell_dialog_win.cc
+index 9ccd1bbc4562..23d14323fcb7 100644
+--- ui/shell_dialogs/base_shell_dialog_win.cc
++++ ui/shell_dialogs/base_shell_dialog_win.cc
+@@ -30,7 +30,7 @@ BaseShellDialogImpl::RunState BaseShellDialogImpl::BeginRun(HWND owner) {
+   DCHECK(!IsRunningDialogForOwner(owner));
+   // The owner must be a top level window, otherwise we could end up with two
+   // entries in our map for the same top level window.
+-  DCHECK(!owner || owner == GetAncestor(owner, GA_ROOT));
++  // DCHECK(!owner || owner == GetAncestor(owner, GA_ROOT));
+   RunState run_state;
+   run_state.dialog_thread = CreateDialogThread();
+   run_state.owner = owner;

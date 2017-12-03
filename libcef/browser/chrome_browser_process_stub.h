@@ -39,6 +39,8 @@ class ChromeBrowserProcessStub : public BrowserProcess,
   void OnContextInitialized();
   void Shutdown();
 
+  void CreatePrintPreviewDialogController();
+  void CreateBackgroundPrintingManager();
   // BrowserProcess implementation.
   void ResourceDispatcherHostCreated() override;
   void EndSession() override;
@@ -125,7 +127,10 @@ class ChromeBrowserProcessStub : public BrowserProcess,
   std::unique_ptr<ChromeProfileManagerStub> profile_manager_;
   scoped_refptr<extensions::EventRouterForwarder> event_router_forwarder_;
   std::unique_ptr<net_log::ChromeNetLog> net_log_;
-
+  scoped_refptr<printing::PrintPreviewDialogController>
+      print_preview_dialog_controller_;
+  std::unique_ptr<printing::BackgroundPrintingManager>
+      background_printing_manager_;
   DISALLOW_COPY_AND_ASSIGN(ChromeBrowserProcessStub);
 };
 

@@ -563,6 +563,38 @@ void CefBrowserPlatformDelegateNativeWin::TranslateMouseEvent(
   result.pointer_type = blink::WebPointerProperties::PointerType::kMouse;
 }
 
+gfx::NativeView CefBrowserPlatformDelegateNativeWin::GetHostView() const {
+  return GetWindowWidget()->GetNativeView();
+}
+
+gfx::Point CefBrowserPlatformDelegateNativeWin::GetDialogPosition(
+    const gfx::Size& size) {
+  gfx::Size app_window_size =
+      GetWindowWidget()->GetWindowBoundsInScreen().size();
+  return gfx::Point(app_window_size.width() / 2 - size.width() / 2,
+                    app_window_size.height() / 2 - size.height() / 2);
+}
+
+gfx::Size CefBrowserPlatformDelegateNativeWin::GetMaximumDialogSize() {
+  return GetWindowWidget()->GetWindowBoundsInScreen().size();
+}
+
+void CefBrowserPlatformDelegateNativeWin::AddObserver(
+    web_modal::ModalDialogHostObserver* observer) {
+  if (observer && !observer_list_.HasObserver(observer))
+    observer_list_.AddObserver(observer);
+}
+
+void CefBrowserPlatformDelegateNativeWin::RemoveObserver(
+    web_modal::ModalDialogHostObserver* observer) {
+  observer_list_.RemoveObserver(observer);
+}
+
+void CefBrowserPlatformDelegateNativeWin::OnViewWasResized() {
+  for (auto& observer : observer_list_)
+    observer.OnPositionRequiresUpdate();
+}
+
 // static
 void CefBrowserPlatformDelegateNativeWin::RegisterWindowClass() {
   static bool registered = false;

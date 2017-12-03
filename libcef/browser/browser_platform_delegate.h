@@ -22,14 +22,14 @@ namespace blink {
 class WebMouseEvent;
 class WebMouseWheelEvent;
 class WebInputEvent;
-}
+}  // namespace blink
 
 namespace content {
 struct NativeWebKeyboardEvent;
 class RenderViewHost;
 class RenderViewHostDelegateView;
 class WebContentsView;
-}
+}  // namespace content
 
 #if defined(USE_AURA)
 namespace views {
@@ -265,6 +265,12 @@ class CefBrowserPlatformDelegate {
       const std::vector<content::AXEventNotificationDetails>& eventData);
   virtual void AccessibilityLocationChangesReceived(
       const std::vector<content::AXLocationChangeNotificationDetails>& locData);
+  virtual gfx::NativeView GetHostView() const;
+  virtual gfx::Point GetDialogPosition(const gfx::Size& size);
+  virtual gfx::Size GetMaximumDialogSize();
+  virtual void AddObserver(web_modal::ModalDialogHostObserver* observer);
+  virtual void RemoveObserver(web_modal::ModalDialogHostObserver* observer);
+  virtual void OnViewWasResized();
 
  protected:
   // Allow deletion via scoped_ptr only.

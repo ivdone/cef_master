@@ -78,6 +78,7 @@ const char* kAllowedWebUIHosts[] = {
     chrome::kChromeUISystemInfoHost,
     content::kChromeUITracingHost,
     content::kChromeUIWebRTCInternalsHost,
+    chrome::kChromeUIPrintHost,
 };
 
 // Hosts that don't have useful output when linked directly. They'll be excluded

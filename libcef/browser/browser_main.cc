@@ -27,6 +27,8 @@
 #include "base/message_loop/message_loop.h"
 #include "base/strings/string_number_conversions.h"
 #include "chrome/browser/plugins/plugin_finder.h"
+#include "chrome/browser/ui/views/chrome_constrained_window_views_client.h"
+#include "components/constrained_window/constrained_window_views.h"
 #include "content/public/browser/gpu_data_manager.h"
 #include "content/public/common/result_codes.h"
 #include "extensions/browser/extension_system.h"
@@ -58,7 +60,9 @@ CefBrowserMainParts::CefBrowserMainParts(
     const content::MainFunctionParams& parameters)
     : BrowserMainParts(), devtools_delegate_(NULL) {}
 
-CefBrowserMainParts::~CefBrowserMainParts() {}
+CefBrowserMainParts::~CefBrowserMainParts() {
+  constrained_window::SetConstrainedWindowViewsClient(nullptr);
+}
 
 void CefBrowserMainParts::PreMainMessageLoopStart() {
   if (!base::MessageLoop::current()) {
@@ -77,6 +81,7 @@ int CefBrowserMainParts::PreEarlyInitialization() {
 }
 
 void CefBrowserMainParts::ToolkitInitialized() {
+  SetConstrainedWindowViewsClient(CreateChromeConstrainedWindowViewsClient());
 #if defined(USE_AURA)
   CHECK(aura::Env::GetInstance());
 

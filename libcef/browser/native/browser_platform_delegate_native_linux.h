@@ -48,6 +48,13 @@ class CefBrowserPlatformDelegateNativeLinux
       const content::NativeWebKeyboardEvent& event) const override;
   std::unique_ptr<CefMenuRunner> CreateMenuRunner() override;
 
+  gfx::NativeView GetHostView() const override;
+  gfx::Point GetDialogPosition(const gfx::Size& size) override;
+  gfx::Size GetMaximumDialogSize() override;
+  void AddObserver(web_modal::ModalDialogHostObserver* observer) override;
+  void RemoveObserver(web_modal::ModalDialogHostObserver* observer) override;
+  void OnViewWasResized() override;
+
  private:
   void TranslateMouseEvent(blink::WebMouseEvent& result,
                            const CefMouseEvent& mouse_event) const;
@@ -60,6 +67,9 @@ class CefBrowserPlatformDelegateNativeLinux
   views::Widget* window_widget_;
 
   CefWindowX11* window_x11_;
+
+  // Used to notify WebContentsModalDialog
+  base::ObserverList<web_modal::ModalDialogHostObserver> observer_list_;
 };
 
 #endif  // CEF_LIBCEF_BROWSER_NATIVE_BROWSER_PLATFORM_DELEGATE_NATIVE_LINUX_H_
