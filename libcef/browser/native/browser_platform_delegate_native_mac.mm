@@ -473,25 +473,6 @@ void CefBrowserPlatformDelegateNativeMac::TranslateMouseEvent(
   result.pointer_type = blink::WebPointerProperties::PointerType::kMouse;
 }
 
-gfx::NativeView CefBrowserPlatformDelegateNativeMac::GetHostView() const {
-  // To avoid the constrained window controller having to know about the browser
-  // view layout, use the active tab in the parent window.
-  NSWindow* parent_window = [sheet_controller_ parentWindow];
-  Browser* browser = chrome::FindBrowserWithWindow(parent_window);
-  // This could be null for packaged app windows, but this dialog host is
-  // currently only used for browsers.
-  DCHECK(browser);
-  content::WebContents* web_contents =
-      browser->tab_strip_model()->GetActiveWebContents();
-  DCHECK(web_contents);
-  TabDialogs* tab_dialogs = TabDialogs::FromWebContents(web_contents);
-  DCHECK(tab_dialogs);
-
-  // Note this returns the WebContents' superview, so it doesn't really matter
-  // which WebContents inside the browser we actually chose above.
-  return tab_dialogs->GetDialogParentView();
-}
-
 gfx::Point CefBrowserPlatformDelegateNativeMac::GetDialogPosition(
     const gfx::Size& size) {
   // Dialogs are always re-positioned by the constrained window sheet controller
@@ -499,16 +480,9 @@ gfx::Point CefBrowserPlatformDelegateNativeMac::GetDialogPosition(
   return gfx::Point();
 }
 
-void CefBrowserPlatformDelegateNativeMac::AddObserver(
-    web_modal::ModalDialogHostObserver* observer) {}
-void CefBrowserPlatformDelegateNativeMac::RemoveObserver(
-    web_modal::ModalDialogHostObserver* observer) {}
-
 gfx::Size WebContentsModalDialogHostCocoa::GetMaximumDialogSize() {
   // The dialog should try to fit within the overlay for the web contents.
   // Note that, for things like print preview, this is just a suggested maximum.
   return gfx::Size(
       [sheet_controller_ overlayWindowSizeForParentView:GetHostView()]);
 }
-
-void CefBrowserPlatformDelegateNativeMac::OnViewWasResized() {}

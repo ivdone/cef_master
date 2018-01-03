@@ -556,12 +556,14 @@ void CefMainDelegate::PreSandboxStartup() {
 
     base::FilePath dir_default_download;
     base::FilePath dir_default_download_safe;
-    if (GetDefaultDownloadDirectory(&dir_default_download))
+    if (GetDefaultDownloadDirectory(&dir_default_download)) {
       PathService::Override(chrome::DIR_DEFAULT_DOWNLOADS,
                             dir_default_download);
-    if (GetDefaultDownloadSafeDirectory(&dir_default_download_safe))
+    }
+    if (GetDefaultDownloadSafeDirectory(&dir_default_download_safe)) {
       PathService::Override(chrome::DIR_DEFAULT_DOWNLOADS_SAFE,
                             dir_default_download_safe);
+    }
 
     const base::FilePath& user_data_path = GetUserDataPath();
     PathService::Override(chrome::DIR_USER_DATA, user_data_path);
