@@ -526,10 +526,6 @@ void CefBrowserPlatformDelegateNativeWin::TranslateMouseEvent(
   result.SetTimeStampSeconds(GetMessageTime() / 1000.0);
 }
 
-gfx::NativeView CefBrowserPlatformDelegateNativeWin::GetHostView() const {
-  return GetWindowWidget()->GetNativeView();
-}
-
 gfx::Point CefBrowserPlatformDelegateNativeWin::GetDialogPosition(
     const gfx::Size& size) {
   gfx::Size app_window_size =
@@ -540,22 +536,6 @@ gfx::Point CefBrowserPlatformDelegateNativeWin::GetDialogPosition(
 
 gfx::Size CefBrowserPlatformDelegateNativeWin::GetMaximumDialogSize() {
   return GetWindowWidget()->GetWindowBoundsInScreen().size();
-}
-
-void CefBrowserPlatformDelegateNativeWin::AddObserver(
-    web_modal::ModalDialogHostObserver* observer) {
-  if (observer && !observer_list_.HasObserver(observer))
-    observer_list_.AddObserver(observer);
-}
-
-void CefBrowserPlatformDelegateNativeWin::RemoveObserver(
-    web_modal::ModalDialogHostObserver* observer) {
-  observer_list_.RemoveObserver(observer);
-}
-
-void CefBrowserPlatformDelegateNativeWin::OnViewWasResized() {
-  for (auto& observer : observer_list_)
-    observer.OnPositionRequiresUpdate();
 }
 
 // static

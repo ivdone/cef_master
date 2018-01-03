@@ -163,9 +163,8 @@ std::unique_ptr<PrefService> CreatePrefService(Profile* profile,
   registry->RegisterStringPref(
       prefs::kPrintPreviewDefaultDestinationSelectionRules, std::string());
   registry->RegisterBooleanPref(prefs::kCloudPrintSubmitEnabled, false);
-
-  DownloadPrefs::RegisterProfilePrefs(registry.get());
   printing::StickySettings::RegisterProfilePrefs(registry.get());
+  DownloadPrefs::RegisterProfilePrefs(registry.get());
 
   // Spell checking preferences.
   // Modify defaults from SpellcheckServiceFactory::RegisterProfilePrefs.
@@ -209,6 +208,7 @@ std::unique_ptr<PrefService> CreatePrefService(Profile* profile,
     registry->RegisterListPref("test.list");
     registry->RegisterDictionaryPref("test.dict");
   }
+
 // From Chrome::RegisterBrowserUserPrefs.
 #if !defined(OS_CHROMEOS) && !defined(OS_ANDROID)
   registry->RegisterBooleanPref(prefs::kPrintPreviewUseSystemDefaultPrinter,
@@ -217,6 +217,7 @@ std::unique_ptr<PrefService> CreatePrefService(Profile* profile,
   registry->RegisterBooleanPref(prefs::kPrintPreviewUseSystemDefaultPrinter,
                                 true);
 #endif
+  
   // Build the PrefService that manages the PrefRegistry and PrefStores.
   return factory.CreateSyncable(registry.get());
 }

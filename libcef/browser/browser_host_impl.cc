@@ -794,7 +794,11 @@ CefBrowserHostImpl::GetWebContentsModalDialogHost() {
 }
 
 gfx::NativeView CefBrowserHostImpl::GetHostView() const {
-  return platform_delegate_->GetHostView();
+#if defined(USE_AURA)
+  return GetWindowWidget()->GetNativeView();
+#else
+  return GetHostWindowHandle();
+#endif
 }
 
 gfx::Point CefBrowserHostImpl::GetDialogPosition(const gfx::Size& size) {
@@ -805,18 +809,20 @@ gfx::Size CefBrowserHostImpl::GetMaximumDialogSize() {
   return platform_delegate_->GetMaximumDialogSize();
 }
 
-void CefBrowserHostImpl::OnViewWasResized() {
-  platform_delegate_->OnViewWasResized();
-}
-
 void CefBrowserHostImpl::AddObserver(
     web_modal::ModalDialogHostObserver* observer) {
-  platform_delegate_->AddObserver(observer);
+  if (observer && !observer_list_.HasObserver(observer))
+    observer_list_.AddObserver(observer);
 }
 
 void CefBrowserHostImpl::RemoveObserver(
     web_modal::ModalDialogHostObserver* observer) {
-  platform_delegate_->RemoveObserver(observer);
+  observer_list_.RemoveObserver(observer);
+}
+
+void CefBrowserHostImpl::OnViewWasResized() {
+  for (auto& observer : observer_list_)
+    observer.OnPositionRequiresUpdate();
 }
 
 void CefBrowserHostImpl::Print() {

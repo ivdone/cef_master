@@ -1,5 +1,5 @@
 diff --git chrome/browser/ui/webui/constrained_web_dialog_ui.cc chrome/browser/ui/webui/constrained_web_dialog_ui.cc
-index 1ace21b4d8ab..d218a98e4eff 100644
+index 1ace21b4d8ab..dca634e398d1 100644
 --- chrome/browser/ui/webui/constrained_web_dialog_ui.cc
 +++ chrome/browser/ui/webui/constrained_web_dialog_ui.cc
 @@ -27,6 +27,8 @@
@@ -11,16 +11,14 @@ index 1ace21b4d8ab..d218a98e4eff 100644
  using content::RenderFrameHost;
  using content::RenderViewHost;
  using content::WebContents;
-@@ -56,9 +58,12 @@ class ConstrainedWebDialogDelegateUserData
+@@ -56,7 +58,7 @@ class ConstrainedWebDialogDelegateUserData
  
  ConstrainedWebDialogUI::ConstrainedWebDialogUI(content::WebUI* web_ui)
      : WebUIController(web_ui) {
-+#if BUILDFLAG(ENABLE_CEF)
-+#else
- #if BUILDFLAG(ENABLE_EXTENSIONS)
+-#if BUILDFLAG(ENABLE_EXTENSIONS)
++#if !BUILDFLAG(ENABLE_CEF)
    extensions::TabHelper::CreateForWebContents(web_ui->GetWebContents());
  #endif
-+#endif
  }
  
  ConstrainedWebDialogUI::~ConstrainedWebDialogUI() {
