@@ -77,6 +77,7 @@
 #include "net/base/net_errors.h"
 #include "third_party/WebKit/public/web/WebFindOptions.h"
 #include "ui/events/base_event_utils.h"
+#include "ui/views/widget/widget.h"
 
 #if defined(OS_MACOSX)
 #include "components/spellcheck/browser/spellcheck_platform.h"
