@@ -22,31 +22,6 @@ index 1ace21b4d8ab..dca634e398d1 100644
  }
  
  ConstrainedWebDialogUI::~ConstrainedWebDialogUI() {
-diff --git printing/printing_context_win.cc printing/printing_context_win.cc
-index 402d55f50362..3c0584c88ea6 100644
---- printing/printing_context_win.cc
-+++ printing/printing_context_win.cc
-@@ -25,6 +25,8 @@
- #include "ui/aura/window.h"
- #include "ui/aura/window_tree_host.h"
- 
-+#include "cef/libcef/features/features.h"
-+
- namespace printing {
- 
- namespace {
-@@ -270,9 +272,10 @@ PrintingContext::Result PrintingContextWin::NewDocument(
-     di.lpszOutput = debug_dump_path.c_str();
- 
-   // No message loop running in unit tests.
-+#if !BUILDFLAG(ENABLE_CEF) // crbug.com/754112
-   DCHECK(!base::MessageLoop::current() ||
-          !base::MessageLoop::current()->NestableTasksAllowed());
--
-+#endif
-   // Begin a print job by calling the StartDoc function.
-   // NOTE: StartDoc() starts a message loop. That causes a lot of problems with
-   // IPC. Make sure recursive task processing is disabled.
 diff --git chrome/browser/ui/webui/print_preview/printer_handler.cc chrome/browser/ui/webui/print_preview/printer_handler.cc
 index 945361702f89..c7df205443b4 100644
 --- chrome/browser/ui/webui/print_preview/printer_handler.cc
