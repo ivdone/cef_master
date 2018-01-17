@@ -10,6 +10,8 @@
 #include "base/macros.h"
 #include "content/public/browser/web_contents_user_data.h"
 
+class CefBrowserInfo;
+
 namespace content {
 class RenderFrameHost;
 class RenderProcessHost;
@@ -54,6 +56,7 @@ class CefPrintViewManager
     void WebContentsDestroyed() override;
 
    private:
+    scoped_refptr<CefBrowserInfo> browser_info_;
     explicit CefPrintPreviewHelper(content::WebContents* contents);
     friend class content::WebContentsUserData<CefPrintPreviewHelper>;
     DISALLOW_COPY_AND_ASSIGN(CefPrintPreviewHelper);

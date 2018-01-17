@@ -1,3 +1,35 @@
+diff --git chrome/browser/download/chrome_download_manager_delegate.cc chrome/browser/download/chrome_download_manager_delegate.cc
+index 9e21057ff484..4591bea34766 100644
+--- chrome/browser/download/chrome_download_manager_delegate.cc
++++ chrome/browser/download/chrome_download_manager_delegate.cc
+@@ -63,6 +63,8 @@
+ #include "ppapi/features/features.h"
+ #include "ui/base/l10n/l10n_util.h"
+ 
++#include "cef/libcef/features/features.h"
++
+ #if defined(OS_ANDROID)
+ #include "chrome/browser/android/download/chrome_duplicate_download_infobar_delegate.h"
+ #include "chrome/browser/android/download/download_controller.h"
+@@ -266,11 +268,18 @@ ChromeDownloadManagerDelegate::ChromeDownloadManagerDelegate(Profile* profile)
+           {base::MayBlock(), base::TaskPriority::BACKGROUND,
+            base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN})),
+       weak_ptr_factory_(this) {
++  // Print preview used this class because it is calling GetDir
++  // commented this section because this class will only be created by print preview
++  // Print preview's browserContext will not have cache_path_ thus the DCHECK will fail
++  // For CEF this class is only used when print_preview is trying to get download_prefs
++  // we might be able to solve this by extending this class and override that single function.
++#if !BUILDFLAG(ENABLE_CEF)
+   DCHECK(!profile_->GetPath().empty());
+   base::FilePath metadata_cache_file =
+       profile_->GetPath().Append(chrome::kDownloadMetadataStoreFilename);
+   download_metadata_cache_.reset(new download::InProgressCache(
+       metadata_cache_file, disk_access_task_runner_));
++#endif
+ }
+ 
+ ChromeDownloadManagerDelegate::~ChromeDownloadManagerDelegate() {
 diff --git chrome/browser/ui/webui/constrained_web_dialog_ui.cc chrome/browser/ui/webui/constrained_web_dialog_ui.cc
 index 1ace21b4d8ab..dca634e398d1 100644
 --- chrome/browser/ui/webui/constrained_web_dialog_ui.cc
@@ -20,10 +52,50 @@ index 1ace21b4d8ab..dca634e398d1 100644
    extensions::TabHelper::CreateForWebContents(web_ui->GetWebContents());
  #endif
  }
+diff --git chrome/browser/ui/webui/print_preview/print_preview_handler.cc chrome/browser/ui/webui/print_preview/print_preview_handler.cc
+index d5cd5f67ad3b..dda1682abd26 100644
+--- chrome/browser/ui/webui/print_preview/print_preview_handler.cc
++++ chrome/browser/ui/webui/print_preview/print_preview_handler.cc
+@@ -75,6 +75,8 @@
+ #include "printing/print_settings.h"
+ #include "third_party/icu/source/i18n/unicode/ulocdata.h"
  
- ConstrainedWebDialogUI::~ConstrainedWebDialogUI() {
++#include "cef/libcef/features/features.h"
++
+ #if defined(OS_CHROMEOS)
+ #include "chrome/browser/chromeos/settings/device_oauth2_token_service.h"
+ #include "chrome/browser/chromeos/settings/device_oauth2_token_service_factory.h"
+@@ -462,14 +464,18 @@ void PrintPreviewHandler::RegisterMessages() {
+ void PrintPreviewHandler::OnJavascriptAllowed() {
+   // Now that the UI is initialized, any future account changes will require
+   // a printer list refresh.
++#if !BUILDFLAG(ENABLE_CEF)
+   RegisterForGaiaCookieChanges();
++#endif
+ }
+ 
+ void PrintPreviewHandler::OnJavascriptDisallowed() {
+   // Normally the handler and print preview will be destroyed together, but
+   // this is necessary for refresh or navigation from the chrome://print page.
+   weak_factory_.InvalidateWeakPtrs();
++#if !BUILDFLAG(ENABLE_CEF)
+   UnregisterForGaiaCookieChanges();
++#endif
+ }
+ 
+ WebContents* PrintPreviewHandler::preview_web_contents() const {
+@@ -1232,6 +1238,9 @@ PrinterHandler* PrintPreviewHandler::GetPrinterHandler(
+     }
+     return privet_printer_handler_.get();
+   }
++#else
++  if (printer_type == PrinterType::kPrivetPrinter)
++    return nullptr;
+ #endif
+   if (printer_type == PrinterType::kPdfPrinter) {
+     if (!pdf_printer_handler_) {
 diff --git chrome/browser/ui/webui/print_preview/printer_handler.cc chrome/browser/ui/webui/print_preview/printer_handler.cc
-index 945361702f89..c7df205443b4 100644
+index 43126964a2e6..05fc94ac51f3 100644
 --- chrome/browser/ui/webui/print_preview/printer_handler.cc
 +++ chrome/browser/ui/webui/print_preview/printer_handler.cc
 @@ -5,6 +5,7 @@
