@@ -371,8 +371,8 @@ void CefPrintViewManager::CefPrintPreviewHelper::InitializeForCef() {
       content::BrowserContext::GetDownloadManager(profile);
   manager_->SetDelegate(new ChromeDownloadManagerDelegate(profile));
 
-  browser_info_ = CefBrowserInfoManager::GetInstance()->
-    CreatePopupBrowserInfo(print_preview, true);
+  browser_info_ = CefBrowserInfoManager::GetInstance()->CreatePopupBrowserInfo(
+      print_preview, true);
 }
 void CefPrintViewManager::CefPrintPreviewHelper::WebContentsDestroyed() {
   if (browser_info_.get())
