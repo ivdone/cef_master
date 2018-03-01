@@ -365,8 +365,10 @@ CefPrintViewManager::CefPrintPreviewHelper::CefPrintPreviewHelper(
 
 void CefPrintViewManager::CefPrintPreviewHelper::InitializeForCef() {
   content::WebContents* print_preview = web_contents();
+
   Profile* profile =
       Profile::FromBrowserContext(print_preview->GetBrowserContext());
+
   content::DownloadManager* manager_ =
       content::BrowserContext::GetDownloadManager(profile);
   manager_->SetDelegate(new ChromeDownloadManagerDelegate(profile));
