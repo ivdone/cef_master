@@ -73,12 +73,12 @@ const char* kAllowedWebUIHosts[] = {
     content::kChromeUINetworkErrorHost,
     content::kChromeUINetworkErrorsListingHost,
     content::kChromeUINetworkViewCacheHost,
+    chrome::kChromeUIPrintHost,
     content::kChromeUIResourcesHost,
     content::kChromeUIServiceWorkerInternalsHost,
     chrome::kChromeUISystemInfoHost,
     content::kChromeUITracingHost,
     content::kChromeUIWebRTCInternalsHost,
-    chrome::kChromeUIPrintHost,
 };
 
 // Hosts that don't have useful output when linked directly. They'll be excluded

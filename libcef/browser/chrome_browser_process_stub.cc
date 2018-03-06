@@ -217,27 +217,18 @@ printing::PrintJobManager* ChromeBrowserProcessStub::print_job_manager() {
 
 printing::PrintPreviewDialogController*
 ChromeBrowserProcessStub::print_preview_dialog_controller() {
-  if (!print_preview_dialog_controller_.get())
-    CreatePrintPreviewDialogController();
-  return print_preview_dialog_controller_.get();
-}
-
-void ChromeBrowserProcessStub::CreatePrintPreviewDialogController() {
-  DCHECK(!print_preview_dialog_controller_);
-  print_preview_dialog_controller_ =
+  if (!print_preview_dialog_controller_.get()) {
+    print_preview_dialog_controller_ =
       new printing::PrintPreviewDialogController();
+  }
+  return print_preview_dialog_controller_.get();
 }
 
 printing::BackgroundPrintingManager*
 ChromeBrowserProcessStub::background_printing_manager() {
   if (!background_printing_manager_.get())
-    CreateBackgroundPrintingManager();
+    background_printing_manager_.reset(new printing::BackgroundPrintingManager());
   return background_printing_manager_.get();
-}
-
-void ChromeBrowserProcessStub::CreateBackgroundPrintingManager() {
-  DCHECK(!background_printing_manager_);
-  background_printing_manager_.reset(new printing::BackgroundPrintingManager());
 }
 
 IntranetRedirectDetector*

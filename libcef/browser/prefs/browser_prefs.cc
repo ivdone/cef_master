@@ -209,7 +209,7 @@ std::unique_ptr<PrefService> CreatePrefService(Profile* profile,
     registry->RegisterDictionaryPref("test.dict");
   }
 
-// From Chrome::RegisterBrowserUserPrefs.
+  // From Chrome::RegisterBrowserUserPrefs.
 #if !defined(OS_CHROMEOS) && !defined(OS_ANDROID)
   registry->RegisterBooleanPref(prefs::kPrintPreviewUseSystemDefaultPrinter,
                                 false);

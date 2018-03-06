@@ -39,8 +39,6 @@ class ChromeBrowserProcessStub : public BrowserProcess,
   void OnContextInitialized();
   void Shutdown();
 
-  void CreatePrintPreviewDialogController();
-  void CreateBackgroundPrintingManager();
   // BrowserProcess implementation.
   void ResourceDispatcherHostCreated() override;
   void EndSession() override;
