@@ -423,11 +423,6 @@ void CefBrowserPlatformDelegateNativeMac::TranslateWheelEvent(
   result.wheel_ticks_y = deltaY / scrollbarPixelsPerCocoaTick;
   result.has_precise_scrolling_deltas = true;
 
-  // Unless the phase and momentumPhase are passed in as parameters to this
-  // function, there is no way to know them
-  result.phase = blink::WebMouseWheelEvent::kPhaseNone;
-  result.momentum_phase = blink::WebMouseWheelEvent::kPhaseNone;
-
   if (mouse_event.modifiers & EVENTFLAG_LEFT_MOUSE_BUTTON)
     result.button = blink::WebMouseEvent::Button::kLeft;
   else if (mouse_event.modifiers & EVENTFLAG_MIDDLE_MOUSE_BUTTON)
@@ -474,6 +469,22 @@ void CefBrowserPlatformDelegateNativeMac::TranslateMouseEvent(
 
   // timestamp - Mac OSX specific
   result.SetTimeStampSeconds(currentEventTimestamp());
+
+  result.pointer_type = blink::WebPointerProperties::PointerType::kMouse;
+}
+
+gfx::Point CefBrowserPlatformDelegateNativeMac::GetDialogPosition(
+    const gfx::Size& size) {
+  // Dialogs are always re-positioned by the constrained window sheet controller
+  // so nothing interesting to return yet.
+  return gfx::Point();
+}
+
+gfx::Size WebContentsModalDialogHostCocoa::GetMaximumDialogSize() {
+  // The dialog should try to fit within the overlay for the web contents.
+  // Note that, for things like print preview, this is just a suggested maximum.
+  return gfx::Size(
+      [sheet_controller_ overlayWindowSizeForParentView:GetHostView()]);
 }
 
 gfx::Point CefBrowserPlatformDelegateNativeMac::GetDialogPosition(

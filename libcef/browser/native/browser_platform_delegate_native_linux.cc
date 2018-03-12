@@ -346,11 +346,6 @@ void CefBrowserPlatformDelegateNativeLinux::TranslateWheelEvent(
   result.wheel_ticks_y = deltaY / scrollbarPixelsPerGtkTick;
   result.has_precise_scrolling_deltas = true;
 
-  // Unless the phase and momentumPhase are passed in as parameters to this
-  // function, there is no way to know them
-  result.phase = blink::WebMouseWheelEvent::kPhaseNone;
-  result.momentum_phase = blink::WebMouseWheelEvent::kPhaseNone;
-
   if (mouse_event.modifiers & EVENTFLAG_LEFT_MOUSE_BUTTON)
     result.button = blink::WebMouseEvent::Button::kLeft;
   else if (mouse_event.modifiers & EVENTFLAG_MIDDLE_MOUSE_BUTTON)
@@ -389,6 +384,8 @@ void CefBrowserPlatformDelegateNativeLinux::TranslateMouseEvent(
 
   // timestamp
   result.SetTimeStampSeconds(GetSystemUptime());
+
+  result.pointer_type = blink::WebPointerProperties::PointerType::kMouse;
 }
 
 gfx::Point CefBrowserPlatformDelegateNativeLinux::GetDialogPosition(

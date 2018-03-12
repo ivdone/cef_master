@@ -104,26 +104,16 @@ class CefContentRendererClient : public content::ContentRendererClient,
   bool OverrideCreatePlugin(content::RenderFrame* render_frame,
                             const blink::WebPluginParams& params,
                             blink::WebPlugin** plugin) override;
-  bool HandleNavigation(content::RenderFrame* render_frame,
-                        bool is_content_initiated,
-                        bool render_view_was_created_by_renderer,
-                        blink::WebFrame* frame,
-                        const blink::WebURLRequest& request,
-                        blink::WebNavigationType type,
-                        blink::WebNavigationPolicy default_policy,
-                        bool is_redirect) override;
   bool ShouldFork(blink::WebLocalFrame* frame,
                   const GURL& url,
                   const std::string& http_method,
                   bool is_initial_navigation,
                   bool is_server_redirect,
                   bool* send_referrer) override;
-  bool WillSendRequest(
-      blink::WebLocalFrame* frame,
-      ui::PageTransition transition_type,
-      const blink::WebURL& url,
-      std::vector<std::unique_ptr<content::URLLoaderThrottle>>* throttles,
-      GURL* new_url) override;
+  bool WillSendRequest(blink::WebLocalFrame* frame,
+                       ui::PageTransition transition_type,
+                       const blink::WebURL& url,
+                       GURL* new_url) override;
   unsigned long long VisitedLinkHash(const char* canonical_url,
                                      size_t length) override;
   bool IsLinkVisited(unsigned long long link_hash) override;
@@ -137,10 +127,8 @@ class CefContentRendererClient : public content::ContentRendererClient,
   void RunScriptsAtDocumentStart(content::RenderFrame* render_frame) override;
   void RunScriptsAtDocumentEnd(content::RenderFrame* render_frame) override;
   void RunScriptsAtDocumentIdle(content::RenderFrame* render_frame) override;
-  void DevToolsAgentAttached(content::RenderFrame* render_frame,
-                             int session_id) override;
-  void DevToolsAgentDetached(content::RenderFrame* render_frame,
-                             int session_id) override;
+  void DevToolsAgentAttached() override;
+  void DevToolsAgentDetached() override;
 
   // service_manager::LocalInterfaceProvider implementation.
   void GetInterface(const std::string& name,

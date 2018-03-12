@@ -190,6 +190,15 @@ class CefBrowserHostImpl
                      uint32 max_image_size,
                      bool bypass_cache,
                      CefRefPtr<CefDownloadImageCallback> callback) override;
+  bool IsWebContentsVisible(content::WebContents* web_contents) override;
+  web_modal::WebContentsModalDialogHost* GetWebContentsModalDialogHost()
+      override;
+  gfx::NativeView GetHostView() const override;
+  gfx::Point GetDialogPosition(const gfx::Size& size) override;
+  gfx::Size GetMaximumDialogSize() override;
+  void AddObserver(web_modal::ModalDialogHostObserver* observer) override;
+  void RemoveObserver(web_modal::ModalDialogHostObserver* observer) override;
+  void OnViewWasResized();
   void Print() override;
   void PrintToPDF(const CefString& path,
                   const CefPdfPrintSettings& settings,
@@ -308,7 +317,7 @@ class CefBrowserHostImpl
 #endif
 
   // Returns the frame associated with the specified URLRequest.
-  CefRefPtr<CefFrame> GetFrameForRequest(net::URLRequest* request);
+  CefRefPtr<CefFrame> GetFrameForRequest(const net::URLRequest* request);
 
   // Navigate as specified by the |params| argument.
   void Navigate(const CefNavigateParams& params);
@@ -602,11 +611,13 @@ class CefBrowserHostImpl
   // if PlzNavigate is disabled; or >= 0 otherwise. |parent_frame_id| will be
   // CefFrameHostImpl::kUnspecifiedFrameId if unknown. In cases where |frame_id|
   // is < 0 either the existing main frame object or a pending object will be
-  // returned depending on current state.
+  // returned depending on current state. If |is_download| is true then the
+  // value of |is_main_frame| cannot be relied on.
   CefRefPtr<CefFrame> GetOrCreateFrame(int64 frame_id,
                                        int frame_tree_node_id,
                                        int64 parent_frame_id,
                                        bool is_main_frame,
+                                       bool is_download,
                                        base::string16 frame_name,
                                        const GURL& frame_url);
 

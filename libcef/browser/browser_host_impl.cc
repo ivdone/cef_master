@@ -784,6 +784,48 @@ void CefBrowserHostImpl::DownloadImage(
       bypass_cache, base::Bind(OnDownloadImage, max_image_size, callback));
 }
 
+bool CefBrowserHostImpl::IsWebContentsVisible(
+    content::WebContents* web_contents) {
+  return platform_util::IsVisible(web_contents->GetNativeView());
+}
+
+web_modal::WebContentsModalDialogHost*
+CefBrowserHostImpl::GetWebContentsModalDialogHost() {
+  return this;
+}
+
+gfx::NativeView CefBrowserHostImpl::GetHostView() const {
+#if defined(USE_AURA)
+  return GetWindowWidget()->GetNativeView();
+#else
+  return GetHostWindowHandle();
+#endif
+}
+
+gfx::Point CefBrowserHostImpl::GetDialogPosition(const gfx::Size& size) {
+  return platform_delegate_->GetDialogPosition(size);
+}
+
+gfx::Size CefBrowserHostImpl::GetMaximumDialogSize() {
+  return platform_delegate_->GetMaximumDialogSize();
+}
+
+void CefBrowserHostImpl::AddObserver(
+    web_modal::ModalDialogHostObserver* observer) {
+  if (observer && !observer_list_.HasObserver(observer))
+    observer_list_.AddObserver(observer);
+}
+
+void CefBrowserHostImpl::RemoveObserver(
+    web_modal::ModalDialogHostObserver* observer) {
+  observer_list_.RemoveObserver(observer);
+}
+
+void CefBrowserHostImpl::OnViewWasResized() {
+  for (auto& observer : observer_list_)
+    observer.OnPositionRequiresUpdate();
+}
+
 void CefBrowserHostImpl::Print() {
   if (CEF_CURRENTLY_ON_UIT()) {
     content::WebContents* actionable_contents = GetActionableWebContents();
@@ -1590,15 +1632,17 @@ void CefBrowserHostImpl::CancelContextMenu() {
 }
 
 CefRefPtr<CefFrame> CefBrowserHostImpl::GetFrameForRequest(
-    net::URLRequest* request) {
+    const net::URLRequest* request) {
   CEF_REQUIRE_IOT();
   const content::ResourceRequestInfo* info =
       content::ResourceRequestInfo::ForRequest(request);
   if (!info)
     return nullptr;
+  // The value of |IsMainFrame| is unreliable when |IsDownload| returns true.
   return GetOrCreateFrame(info->GetRenderFrameID(), info->GetFrameTreeNodeId(),
                           CefFrameHostImpl::kUnspecifiedFrameId,
-                          info->IsMainFrame(), base::string16(), GURL());
+                          info->IsMainFrame(), info->IsDownload(),
+                          base::string16(), GURL());
 }
 
 void CefBrowserHostImpl::Navigate(const CefNavigateParams& params) {
@@ -2753,7 +2797,7 @@ void CefBrowserHostImpl::DidFinishNavigation(
   CefRefPtr<CefFrame> frame =
       GetOrCreateFrame(frame_id, navigation_handle->GetFrameTreeNodeId(),
                        CefFrameHostImpl::kUnspecifiedFrameId, is_main_frame,
-                       base::string16(), url);
+                       false, base::string16(), url);
 
   if (error_code == net::OK) {
     // The navigation has been committed and there is no error.
@@ -2801,7 +2845,7 @@ void CefBrowserHostImpl::DidFailLoad(
       GetOrCreateFrame(render_frame_host->GetRoutingID(),
                        render_frame_host->GetFrameTreeNodeId(),
                        CefFrameHostImpl::kUnspecifiedFrameId, is_main_frame,
-                       base::string16(), validated_url);
+                       false, base::string16(), validated_url);
   OnLoadError(frame, validated_url, error_code);
   OnLoadEnd(frame, validated_url, error_code);
 }
@@ -2964,7 +3008,7 @@ void CefBrowserHostImpl::OnFrameIdentified(int64 frame_id,
                                            base::string16 name) {
   bool is_main_frame = (parent_frame_id == CefFrameHostImpl::kMainFrameId);
   GetOrCreateFrame(frame_id, kUnspecifiedFrameTreeNodeId, parent_frame_id,
-                   is_main_frame, name, GURL());
+                   is_main_frame, false, name, GURL());
 }
 
 void CefBrowserHostImpl::OnFrameFocused(
@@ -3006,7 +3050,7 @@ void CefBrowserHostImpl::OnDidFinishLoad(int64 frame_id,
   CefRefPtr<CefFrame> frame =
       GetOrCreateFrame(frame_id, kUnspecifiedFrameTreeNodeId,
                        CefFrameHostImpl::kUnspecifiedFrameId, is_main_frame,
-                       base::string16(), validated_url);
+                       false, base::string16(), validated_url);
 
   // Give internal scheme handlers an opportunity to update content.
   scheme::DidFinishLoad(frame, validated_url);
@@ -3258,6 +3302,7 @@ CefRefPtr<CefFrame> CefBrowserHostImpl::GetOrCreateFrame(
     int frame_tree_node_id,
     int64 parent_frame_id,
     bool is_main_frame,
+    bool is_download,
     base::string16 frame_name,
     const GURL& frame_url) {
   // We need either a valid |frame_id| or a valid |frame_tree_node_id|.
@@ -3278,12 +3323,13 @@ CefRefPtr<CefFrame> CefBrowserHostImpl::GetOrCreateFrame(
 
   if (frame_id < 0) {
     // With PlzNavigate the renderer process representation might not exist yet.
-    if (is_main_frame && main_frame_id_ != CefFrameHostImpl::kInvalidFrameId) {
+    if ((is_main_frame || is_download) &&
+        main_frame_id_ != CefFrameHostImpl::kInvalidFrameId) {
       // Operating in the main frame. Continue using the existing main frame
       // object until the new renderer process representation is created.
       frame_id = main_frame_id_;
     } else {
-      if (is_main_frame) {
+      if (is_main_frame || is_download) {
         // Always use the same pending object for the main frame.
         frame_tree_node_id = kMainFrameTreeNodeId;
       }
@@ -3351,8 +3397,26 @@ CefRefPtr<CefFrame> CefBrowserHostImpl::GetOrCreateFrame(
     }
   }
 
-  if (!frame_created)
+  if (!frame_created && !is_download)
     frame->SetAttributes(is_main_frame, url, name, parent_frame_id);
+
+#if DCHECK_IS_ON()
+  // The main frame should always be correctly attributed.
+  DCHECK(main_frame_id_ == CefFrameHostImpl::kInvalidFrameId ||
+         main_frame_id_ >= 0)
+      << main_frame_id_;
+  if (main_frame_id_ == CefFrameHostImpl::kInvalidFrameId) {
+    // With PlzNavigate the renderer process representation might not exist yet.
+    DCHECK(frame_id == CefFrameHostImpl::kMainFrameId ||
+           frame_id == CefFrameHostImpl::kUnspecifiedFrameId)
+        << frame_id;
+    DCHECK(frame->IsMain());
+  } else if (main_frame_id_ == frame_id) {
+    DCHECK(frame->IsMain());
+  } else {
+    DCHECK(!frame->IsMain());
+  }
+#endif
 
   return frame.get();
 }

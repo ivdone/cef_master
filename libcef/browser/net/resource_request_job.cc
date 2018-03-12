@@ -328,6 +328,14 @@ bool CefResourceRequestJob::GetMimeType(std::string* mime_type) const {
   return true;
 }
 
+bool CefResourceRequestJob::GetCharset(std::string* charset) {
+  CEF_REQUIRE_IOT();
+
+  if (net::HttpResponseHeaders *headers = GetResponseHeaders())
+    return headers->GetCharset(charset);
+  return false;
+}
+
 void CefResourceRequestJob::SendHeaders() {
   CEF_REQUIRE_IOT();
 
@@ -411,7 +419,7 @@ void CefResourceRequestJob::DoLoadCookies() {
 
 void CefResourceRequestJob::CheckCookiePolicyAndLoad(
     const net::CookieList& cookie_list) {
-  bool can_get_cookies = CanGetCookies(cookie_list);
+  bool can_get_cookies = !cookie_list.empty() && CanGetCookies(cookie_list);
   if (can_get_cookies) {
     net::CookieList::const_iterator it = cookie_list.begin();
     for (; it != cookie_list.end(); ++it) {

@@ -80,7 +80,7 @@ class CefRequestImpl : public CefRequest {
   uint64 GetIdentifier() override;
 
   // Populate this object from the URLRequest object.
-  void Set(net::URLRequest* request);
+  void Set(const net::URLRequest* request);
 
   // Populate the URLRequest object from this object.
   // If |changed_only| is true then only the changed fields will be updated.
@@ -92,10 +92,6 @@ class CefRequestImpl : public CefRequest {
   // Called from content_browser_client.cc NavigationOnUIThread().
   void Set(const navigation_interception::NavigationParams& params,
            bool is_main_frame);
-
-  // Populate this object from a WebURLRequest object.
-  // Called from CefContentRendererClient::HandleNavigation().
-  void Set(const blink::WebURLRequest& request);
 
   // Populate the WebURLRequest object from this object.
   // Called from CefRenderURLRequest::Context::Start().

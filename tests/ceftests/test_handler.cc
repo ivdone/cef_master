@@ -5,6 +5,7 @@
 #include "tests/ceftests/test_handler.h"
 
 #include "include/base/cef_bind.h"
+#include "include/base/cef_logging.h"
 #include "include/cef_command_line.h"
 #include "include/cef_stream.h"
 #include "include/wrapper/cef_closure_task.h"
@@ -283,6 +284,11 @@ CefRefPtr<CefResourceHandler> TestHandler::GetResourceHandler(
   return NULL;
 }
 
+void TestHandler::OnRenderProcessTerminated(CefRefPtr<CefBrowser> browser,
+                                            TerminationStatus status) {
+  LOG(WARNING) << "OnRenderProcessTerminated: status = " << status << ".";
+}
+
 CefRefPtr<CefBrowser> TestHandler::GetBrowser() {
   return first_browser_;
 }
@@ -489,20 +495,4 @@ bool TestFailed() {
     // Check for any global failure.
     return ::testing::UnitTest::GetInstance()->Failed();
   }
-}
-
-bool IsBrowserSideNavigationEnabled() {
-  static bool initialized = false;
-  static bool value = false;  // Default value.
-  if (!initialized) {
-    CefRefPtr<CefCommandLine> command_line =
-        CefCommandLine::GetGlobalCommandLine();
-    if (command_line->HasSwitch("enable-browser-side-navigation")) {
-      value = true;
-    } else if (command_line->HasSwitch("disable-browser-side-navigation")) {
-      value = false;
-    }
-    initialized = true;
-  }
-  return value;
 }

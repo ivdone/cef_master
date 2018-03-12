@@ -50,7 +50,6 @@ class CefBrowserPlatformDelegateNativeWin
   std::unique_ptr<CefJavaScriptDialogRunner> CreateJavaScriptDialogRunner()
       override;
   std::unique_ptr<CefMenuRunner> CreateMenuRunner() override;
-  base::ObserverList<web_modal::ModalDialogHostObserver> observer_list_;
   gfx::Point GetDialogPosition(const gfx::Size& size) override;
   gfx::Size GetMaximumDialogSize() override;
 
@@ -71,6 +70,10 @@ class CefBrowserPlatformDelegateNativeWin
   // Widget hosting the web contents. It will be deleted automatically when the
   // associated root window is destroyed.
   views::Widget* window_widget_;
+
+  bool has_frame_ = false;
+  bool called_enable_non_client_dpi_scaling_ = false;
+  base::ObserverList<web_modal::ModalDialogHostObserver> observer_list_;
 };
 
 #endif  // CEF_LIBCEF_BROWSER_NATIVE_BROWSER_PLATFORM_DELEGATE_NATIVE_WIN_H_

@@ -73,6 +73,7 @@ const char* kAllowedWebUIHosts[] = {
     content::kChromeUINetworkErrorHost,
     content::kChromeUINetworkErrorsListingHost,
     content::kChromeUINetworkViewCacheHost,
+    chrome::kChromeUIPrintHost,
     content::kChromeUIResourcesHost,
     content::kChromeUIServiceWorkerInternalsHost,
     chrome::kChromeUISystemInfoHost,

@@ -204,12 +204,6 @@ class FrameNavExpectationsRenderer : public FrameNavExpectations {
  public:
   explicit FrameNavExpectationsRenderer(int nav)
       : FrameNavExpectations(nav, true) {}
-
-  // Renderer-only notifications.
-  virtual bool OnBeforeNavigation(CefRefPtr<CefBrowser> browser,
-                                  CefRefPtr<CefFrame> frame) {
-    return true;
-  }
 };
 
 // Abstract base class for the factory that creates expectations objects.
@@ -364,21 +358,6 @@ class FrameNavRendererTest : public ClientAppRenderer::Delegate,
                  int httpStatusCode) override {
     CreateExpectationsIfNecessary();
     EXPECT_TRUE(expectations_->OnLoadEnd(browser, frame)) << "nav = " << nav_;
-  }
-
-  bool OnBeforeNavigation(CefRefPtr<ClientAppRenderer> app,
-                          CefRefPtr<CefBrowser> browser,
-                          CefRefPtr<CefFrame> frame,
-                          CefRefPtr<CefRequest> request,
-                          cef_navigation_type_t navigation_type,
-                          bool is_redirect) override {
-    if (!run_test_)
-      return false;
-
-    CreateExpectationsIfNecessary();
-    EXPECT_TRUE(expectations_->OnBeforeNavigation(browser, frame))
-        << "nav = " << nav_;
-    return false;
   }
 
  protected:
@@ -723,13 +702,6 @@ class FrameNavExpectationsRendererSingleNav
     return true;
   }
 
-  bool OnBeforeNavigation(CefRefPtr<CefBrowser> browser,
-                          CefRefPtr<CefFrame> frame) override {
-    EXPECT_FALSE(got_before_navigation_);
-    got_before_navigation_.yes();
-    return true;
-  }
-
   bool Finalize() override {
     V_DECLARE();
     V_EXPECT_TRUE(got_load_start_);
@@ -737,12 +709,6 @@ class FrameNavExpectationsRendererSingleNav
     V_EXPECT_TRUE(got_loading_state_change_start_);
     V_EXPECT_TRUE(got_loading_state_change_end_);
     V_EXPECT_FALSE(got_finalize_);
-
-    if (IsBrowserSideNavigationEnabled()) {
-      V_EXPECT_FALSE(got_before_navigation_);
-    } else {
-      V_EXPECT_TRUE(got_before_navigation_);
-    }
 
     got_finalize_.yes();
 
@@ -759,7 +725,6 @@ class FrameNavExpectationsRendererSingleNav
   TrackCallback got_load_end_;
   TrackCallback got_loading_state_change_start_;
   TrackCallback got_loading_state_change_end_;
-  TrackCallback got_before_navigation_;
   TrackCallback got_finalize_;
 };
 
@@ -1025,8 +990,8 @@ class FrameNavExpectationsBrowserTestSingleNav
     V_DECLARE();
     // When browser-side navigation is enabled this method will be called
     // before the frame is created.
-    V_EXPECT_TRUE(VerifySingleBrowserFrames(
-        browser, frame, !IsBrowserSideNavigationEnabled(), std::string()));
+    V_EXPECT_TRUE(
+        VerifySingleBrowserFrames(browser, frame, false, std::string()));
     V_EXPECT_TRUE(parent::OnBeforeBrowse(browser, frame, url));
     V_RETURN();
   }
@@ -1036,8 +1001,8 @@ class FrameNavExpectationsBrowserTestSingleNav
     V_DECLARE();
     // When browser-side navigation is enabled this method will be called
     // before the frame is created.
-    V_EXPECT_TRUE(VerifySingleBrowserFrames(
-        browser, frame, !IsBrowserSideNavigationEnabled(), std::string()));
+    V_EXPECT_TRUE(
+        VerifySingleBrowserFrames(browser, frame, false, std::string()));
     V_EXPECT_TRUE(parent::GetResourceHandler(browser, frame));
     V_RETURN();
   }
@@ -1062,13 +1027,8 @@ class FrameNavExpectationsRendererTestSingleNav
                             bool isLoading) override {
     V_DECLARE();
     // A frame should always exist in the renderer process.
-    if (isLoading) {
-      V_EXPECT_TRUE(
-          VerifySingleBrowserFrames(browser, NULL, true, std::string()));
-    } else {
-      V_EXPECT_TRUE(
-          VerifySingleBrowserFrames(browser, NULL, true, kFrameNavOrigin0));
-    }
+    V_EXPECT_TRUE(
+        VerifySingleBrowserFrames(browser, NULL, true, kFrameNavOrigin0));
     V_EXPECT_TRUE(parent::OnLoadingStateChange(browser, isLoading));
     V_RETURN();
   }
@@ -1539,8 +1499,7 @@ class FrameNavExpectationsBrowserTestMultiNav
     // When browser-side navigation is enabled this method will be called
     // before the frame is created for the first navigation.
     V_EXPECT_TRUE(VerifySingleBrowserFrames(
-        browser, frame, nav() == 0 ? !IsBrowserSideNavigationEnabled() : true,
-        expected_url));
+        browser, frame, nav() == 0 ? false : true, expected_url));
     V_EXPECT_TRUE(parent::OnBeforeBrowse(browser, frame, url));
     V_RETURN();
   }
@@ -1554,8 +1513,7 @@ class FrameNavExpectationsBrowserTestMultiNav
     // When browser-side navigation is enabled this method will be called
     // before the frame is created for the first navigation.
     V_EXPECT_TRUE(VerifySingleBrowserFrames(
-        browser, frame, nav() == 0 ? !IsBrowserSideNavigationEnabled() : true,
-        expected_url));
+        browser, frame, nav() == 0 ? false : true, expected_url));
     V_EXPECT_TRUE(parent::GetResourceHandler(browser, frame));
     V_RETURN();
   }
@@ -1609,16 +1567,7 @@ class FrameNavExpectationsRendererTestMultiNav
       got_load_state_change_done_.yes();
     V_DECLARE();
     // A frame should always exist in the renderer process.
-    if (isLoading) {
-      std::string expected_url;
-      if (nav() > 0)
-        expected_url = GetPreviousMainURL();
-      V_EXPECT_TRUE(
-          VerifySingleBrowserFrames(browser, NULL, true, expected_url));
-    } else {
-      V_EXPECT_TRUE(
-          VerifySingleBrowserFrames(browser, NULL, true, GetMainURL()));
-    }
+    V_EXPECT_TRUE(VerifySingleBrowserFrames(browser, NULL, true, GetMainURL()));
     V_EXPECT_TRUE(parent::OnLoadingStateChange(browser, isLoading));
     V_RETURN();
   }

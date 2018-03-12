@@ -30,6 +30,7 @@
 #include "components/content_settings/core/common/content_settings_pattern.h"
 #include "content/public/browser/browser_main_runner.h"
 #include "content/public/browser/render_process_host.h"
+#include "content/public/common/content_features.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/main_function_params.h"
 #include "extensions/common/constants.h"
@@ -462,11 +463,19 @@ bool CefMainDelegate::BasicStartupComplete(int* exit_code) {
           base::IntToString(settings.uncaught_exception_stack_size));
     }
 
-    // If browser-side navigation is not explicitly enabled or disabled, disable
-    // it. See https://crbug.com/776884.
-    if (!command_line->HasSwitch(switches::kDisableBrowserSideNavigation) &&
-        !command_line->HasSwitch(switches::kEnableBrowserSideNavigation)) {
-      command_line->AppendSwitch(switches::kDisableBrowserSideNavigation);
+    // Disable AsyncWheelEvents when OSR is enabled to avoid DCHECKs in
+    // MouseWheelEventQueue.
+    if (settings.windowless_rendering_enabled &&
+        features::kAsyncWheelEvents.default_state ==
+            base::FEATURE_ENABLED_BY_DEFAULT) {
+      DCHECK(!base::FeatureList::GetInstance());
+      std::string disable_features =
+          command_line->GetSwitchValueASCII(switches::kDisableFeatures);
+      if (!disable_features.empty())
+        disable_features += ",";
+      disable_features += features::kAsyncWheelEvents.name;
+      command_line->AppendSwitchASCII(switches::kDisableFeatures,
+                                      disable_features);
     }
   }
 
@@ -754,7 +763,8 @@ void CefMainDelegate::InitializeResourceBundle() {
       }
     }
 
-    if (extensions::ExtensionsEnabled()) {
+    if (extensions::ExtensionsEnabled() ||
+        !command_line->HasSwitch(switches::kDisablePlugins)) {
       if (base::PathExists(cef_extensions_pak_file)) {
         resource_bundle.AddDataPackFromPath(cef_extensions_pak_file,
                                             ui::SCALE_FACTOR_NONE);

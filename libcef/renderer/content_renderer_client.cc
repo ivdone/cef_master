@@ -444,16 +444,7 @@ void CefContentRendererClient::RenderFrameCreated(
   const base::CommandLine* command_line =
       base::CommandLine::ForCurrentProcess();
   if (!command_line->HasSwitch(switches::kDisableSpellChecking)) {
-    SpellCheckProvider* spell_check_provider =
-        new SpellCheckProvider(render_frame, spellcheck_.get(), this);
-    // TODO(xiaochengh): Design better way to sync between Chrome-side and
-    // Blink-side spellcheck enabled states.  See crbug.com/710097.
-    //
-    // TODO(alexmos): Do this for all frames so that this works properly for
-    // OOPIFs.  See https://crbug.com/789273.
-    if (render_frame->IsMainFrame())
-      spell_check_provider->EnableSpellcheck(
-          spellcheck_->IsSpellcheckEnabled());
+    new SpellCheckProvider(render_frame, spellcheck_.get(), this);
   }
 
   BrowserCreated(render_frame->GetRenderView(), render_frame);
@@ -488,68 +479,6 @@ bool CefContentRendererClient::OverrideCreatePlugin(
   return true;
 }
 
-bool CefContentRendererClient::HandleNavigation(
-    content::RenderFrame* render_frame,
-    bool is_content_initiated,
-    bool render_view_was_created_by_renderer,
-    blink::WebFrame* frame,
-    const blink::WebURLRequest& request,
-    blink::WebNavigationType type,
-    blink::WebNavigationPolicy default_policy,
-    bool is_redirect) {
-  if (!frame->IsWebLocalFrame())
-    return false;
-
-  CefRefPtr<CefApp> application = CefContentClient::Get()->application();
-  if (application.get()) {
-    CefRefPtr<CefRenderProcessHandler> handler =
-        application->GetRenderProcessHandler();
-    if (handler.get()) {
-      CefRefPtr<CefBrowserImpl> browserPtr =
-          CefBrowserImpl::GetBrowserForMainFrame(frame->Top());
-      if (browserPtr.get()) {
-        CefRefPtr<CefFrameImpl> framePtr =
-            browserPtr->GetWebFrameImpl(frame->ToWebLocalFrame());
-        CefRefPtr<CefRequest> requestPtr(CefRequest::Create());
-        CefRequestImpl* requestImpl =
-            static_cast<CefRequestImpl*>(requestPtr.get());
-        requestImpl->Set(request);
-        requestImpl->SetReadOnly(true);
-
-        cef_navigation_type_t navigation_type = NAVIGATION_OTHER;
-        switch (type) {
-          case blink::kWebNavigationTypeLinkClicked:
-            navigation_type = NAVIGATION_LINK_CLICKED;
-            break;
-          case blink::kWebNavigationTypeFormSubmitted:
-            navigation_type = NAVIGATION_FORM_SUBMITTED;
-            break;
-          case blink::kWebNavigationTypeBackForward:
-            navigation_type = NAVIGATION_BACK_FORWARD;
-            break;
-          case blink::kWebNavigationTypeReload:
-            navigation_type = NAVIGATION_RELOAD;
-            break;
-          case blink::kWebNavigationTypeFormResubmitted:
-            navigation_type = NAVIGATION_FORM_RESUBMITTED;
-            break;
-          case blink::kWebNavigationTypeOther:
-            navigation_type = NAVIGATION_OTHER;
-            break;
-        }
-
-        if (handler->OnBeforeNavigation(browserPtr.get(), framePtr.get(),
-                                        requestPtr.get(), navigation_type,
-                                        is_redirect)) {
-          return true;
-        }
-      }
-    }
-  }
-
-  return false;
-}
-
 bool CefContentRendererClient::ShouldFork(blink::WebLocalFrame* frame,
                                           const GURL& url,
                                           const std::string& http_method,
@@ -577,7 +506,6 @@ bool CefContentRendererClient::WillSendRequest(
     blink::WebLocalFrame* frame,
     ui::PageTransition transition_type,
     const blink::WebURL& url,
-    std::vector<std::unique_ptr<content::URLLoaderThrottle>>* throttles,
     GURL* new_url) {
   if (extensions::ExtensionsEnabled()) {
     return extensions_renderer_client_->WillSendRequest(frame, transition_type,
@@ -631,16 +559,12 @@ void CefContentRendererClient::RunScriptsAtDocumentIdle(
     extensions_renderer_client_->RunScriptsAtDocumentIdle(render_frame);
 }
 
-void CefContentRendererClient::DevToolsAgentAttached(
-    content::RenderFrame* render_frame,
-    int session_id) {
+void CefContentRendererClient::DevToolsAgentAttached() {
   CEF_REQUIRE_RT();
   ++devtools_agent_count_;
 }
 
-void CefContentRendererClient::DevToolsAgentDetached(
-    content::RenderFrame* render_frame,
-    int session_id) {
+void CefContentRendererClient::DevToolsAgentDetached() {
   CEF_REQUIRE_RT();
   --devtools_agent_count_;
   if (devtools_agent_count_ == 0 && uncaught_exception_stack_size_ > 0) {
