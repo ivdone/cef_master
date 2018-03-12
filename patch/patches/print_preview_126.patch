@@ -1,40 +1,40 @@
-<<<<<<< HEAD
-=======
 diff --git chrome/browser/download/chrome_download_manager_delegate.cc chrome/browser/download/chrome_download_manager_delegate.cc
-index 9e21057ff484..4591bea34766 100644
+index c313b2efb27a..36f54c5c8224 100644
 --- chrome/browser/download/chrome_download_manager_delegate.cc
 +++ chrome/browser/download/chrome_download_manager_delegate.cc
-@@ -63,6 +63,8 @@
- #include "ppapi/features/features.h"
- #include "ui/base/l10n/l10n_util.h"
+@@ -83,6 +83,8 @@
+ #include "extensions/common/constants.h"
+ #endif
  
 +#include "cef/libcef/features/features.h"
 +
- #if defined(OS_ANDROID)
- #include "chrome/browser/android/download/chrome_duplicate_download_infobar_delegate.h"
- #include "chrome/browser/android/download/download_controller.h"
-@@ -266,11 +268,18 @@ ChromeDownloadManagerDelegate::ChromeDownloadManagerDelegate(Profile* profile)
+ using content::BrowserThread;
+ using content::DownloadItem;
+ using content::DownloadManager;
+@@ -266,11 +268,13 @@ ChromeDownloadManagerDelegate::ChromeDownloadManagerDelegate(Profile* profile)
            {base::MayBlock(), base::TaskPriority::BACKGROUND,
             base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN})),
        weak_ptr_factory_(this) {
-+  // Print preview used this class because it is calling GetDir
-+  // commented this section because this class will only be created by print preview
-+  // Print preview's browserContext will not have cache_path_ thus the DCHECK will fail
-+  // For CEF this class is only used when print_preview is trying to get download_prefs
-+  // we might be able to solve this by extending this class and override that single function.
 +#if !BUILDFLAG(ENABLE_CEF)
    DCHECK(!profile_->GetPath().empty());
    base::FilePath metadata_cache_file =
        profile_->GetPath().Append(chrome::kDownloadMetadataStoreFilename);
-   download_metadata_cache_.reset(new download::InProgressCache(
+   download_metadata_cache_.reset(new download::InProgressCacheImpl(
        metadata_cache_file, disk_access_task_runner_));
 +#endif
  }
  
  ChromeDownloadManagerDelegate::~ChromeDownloadManagerDelegate() {
->>>>>>> 0558b97cfc5535c576fbbadafc362b7cc7dbf2f4
+@@ -549,6 +553,7 @@ void ChromeDownloadManagerDelegate::ChooseSavePath(
+ }
+ 
+ download::InProgressCache* ChromeDownloadManagerDelegate::GetInProgressCache() {
++  return nullptr;
+   DCHECK(download_metadata_cache_ != nullptr);
+   return download_metadata_cache_.get();
+ }
 diff --git chrome/browser/ui/webui/constrained_web_dialog_ui.cc chrome/browser/ui/webui/constrained_web_dialog_ui.cc
-index 1ace21b4d8ab..dca634e398d1 100644
+index 0e061e83bf94..687e822a2550 100644
 --- chrome/browser/ui/webui/constrained_web_dialog_ui.cc
 +++ chrome/browser/ui/webui/constrained_web_dialog_ui.cc
 @@ -27,6 +27,8 @@
@@ -46,23 +46,18 @@ index 1ace21b4d8ab..dca634e398d1 100644
  using content::RenderFrameHost;
  using content::RenderViewHost;
  using content::WebContents;
-@@ -56,7 +58,7 @@ class ConstrainedWebDialogDelegateUserData
- 
+@@ -57,7 +59,9 @@ class ConstrainedWebDialogDelegateUserData
  ConstrainedWebDialogUI::ConstrainedWebDialogUI(content::WebUI* web_ui)
      : WebUIController(web_ui) {
--#if BUILDFLAG(ENABLE_EXTENSIONS)
+ #if BUILDFLAG(ENABLE_EXTENSIONS)
 +#if !BUILDFLAG(ENABLE_CEF)
    extensions::TabHelper::CreateForWebContents(web_ui->GetWebContents());
++#endif 
  #endif
  }
-<<<<<<< HEAD
  
- ConstrainedWebDialogUI::~ConstrainedWebDialogUI() {
-diff --git chrome/browser/ui/webui/print_preview/printer_handler.cc chrome/browser/ui/webui/print_preview/printer_handler.cc
-index 945361702f89..c7df205443b4 100644
-=======
 diff --git chrome/browser/ui/webui/print_preview/print_preview_handler.cc chrome/browser/ui/webui/print_preview/print_preview_handler.cc
-index d5cd5f67ad3b..dda1682abd26 100644
+index 2913dbfdc781..4ef329f632f4 100644
 --- chrome/browser/ui/webui/print_preview/print_preview_handler.cc
 +++ chrome/browser/ui/webui/print_preview/print_preview_handler.cc
 @@ -75,6 +75,8 @@
@@ -74,7 +69,7 @@ index d5cd5f67ad3b..dda1682abd26 100644
  #if defined(OS_CHROMEOS)
  #include "chrome/browser/chromeos/settings/device_oauth2_token_service.h"
  #include "chrome/browser/chromeos/settings/device_oauth2_token_service_factory.h"
-@@ -462,14 +464,18 @@ void PrintPreviewHandler::RegisterMessages() {
+@@ -467,14 +469,18 @@ void PrintPreviewHandler::RegisterMessages() {
  void PrintPreviewHandler::OnJavascriptAllowed() {
    // Now that the UI is initialized, any future account changes will require
    // a printer list refresh.
@@ -93,7 +88,7 @@ index d5cd5f67ad3b..dda1682abd26 100644
  }
  
  WebContents* PrintPreviewHandler::preview_web_contents() const {
-@@ -1232,6 +1238,9 @@ PrinterHandler* PrintPreviewHandler::GetPrinterHandler(
+@@ -1194,6 +1200,9 @@ PrinterHandler* PrintPreviewHandler::GetPrinterHandler(
      }
      return privet_printer_handler_.get();
    }
@@ -104,8 +99,7 @@ index d5cd5f67ad3b..dda1682abd26 100644
    if (printer_type == PrinterType::kPdfPrinter) {
      if (!pdf_printer_handler_) {
 diff --git chrome/browser/ui/webui/print_preview/printer_handler.cc chrome/browser/ui/webui/print_preview/printer_handler.cc
-index 43126964a2e6..05fc94ac51f3 100644
->>>>>>> 0558b97cfc5535c576fbbadafc362b7cc7dbf2f4
+index bf297f51a01a..ebfd188f53ea 100644
 --- chrome/browser/ui/webui/print_preview/printer_handler.cc
 +++ chrome/browser/ui/webui/print_preview/printer_handler.cc
 @@ -5,6 +5,7 @@
@@ -116,6 +110,19 @@ index 43126964a2e6..05fc94ac51f3 100644
  #include "chrome/browser/ui/webui/print_preview/extension_printer_handler.h"
  #include "chrome/browser/ui/webui/print_preview/pdf_printer_handler.h"
  #include "chrome/common/features.h"
+diff --git content/browser/download/download_manager_impl.cc b/content/browser/download/download_manager_impl.cc
+index 52962a868999..506983be25df 100644
+--- content/browser/download/download_manager_impl.cc
++++ content/browser/download/download_manager_impl.cc
+@@ -344,7 +344,7 @@ DownloadManagerImpl::DownloadManagerImpl(BrowserContext* browser_context)
+ }
+ 
+ DownloadManagerImpl::~DownloadManagerImpl() {
+-  DCHECK(!shutdown_needed_);
++  //DCHECK(!shutdown_needed_);
+ }
+ 
+ DownloadItemImpl* DownloadManagerImpl::CreateActiveItem(
 diff --git ui/shell_dialogs/base_shell_dialog_win.cc ui/shell_dialogs/base_shell_dialog_win.cc
 index 9ccd1bbc4562..23d14323fcb7 100644
 --- ui/shell_dialogs/base_shell_dialog_win.cc
