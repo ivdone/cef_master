@@ -459,6 +459,8 @@ static_library("libcef_static") {
     "libcef/browser/prefs/renderer_prefs.h",
     "libcef/browser/print_settings_impl.cc",
     "libcef/browser/print_settings_impl.h",
+    "libcef/browser/printing/constrained_window_views_client.cc",
+    "libcef/browser/printing/constrained_window_views_client.h",
     "libcef/browser/printing/printing_message_filter.cc",
     "libcef/browser/printing/printing_message_filter.h",
     "libcef/browser/printing/print_view_manager.cc",

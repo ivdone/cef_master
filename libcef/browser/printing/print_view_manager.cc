@@ -365,27 +365,37 @@ CefPrintViewManager::CefPrintPreviewHelper::CefPrintPreviewHelper(
 
 void CefPrintViewManager::CefPrintPreviewHelper::InitializeForCef() {
   content::WebContents* print_preview = web_contents();
+
+  content::BrowserContext* context =
+      print_preview->GetBrowserContext();
+  
+  const char kDownloadManagerKeyName[] = "download_manager";
+
+  if (!context->GetUserData(kDownloadManagerKeyName)) {
+    auto download_manager = base::MakeUnique<content::DownloadManagerImpl>(context);
+    context->SetUserData(kDownloadManagerKeyName, std::move(download_manager));
+  }
+
   Profile* profile =
-      Profile::FromBrowserContext(print_preview->GetBrowserContext());
+    Profile::FromBrowserContext(print_preview->GetBrowserContext());
+
   content::DownloadManager* manager_ =
-      content::BrowserContext::GetDownloadManager(profile);
+    content::BrowserContext::GetDownloadManager(profile);
+
   manager_->SetDelegate(new ChromeDownloadManagerDelegate(profile));
 
-  CefBrowserInfoManager::GetInstance()->CreatePopupBrowserInfo(print_preview,
-                                                               true);
+  browser_info_ = CefBrowserInfoManager::GetInstance()->
+    CreatePopupBrowserInfo(print_preview, true);
 }
+
 void CefPrintViewManager::CefPrintPreviewHelper::WebContentsDestroyed() {
-  content::RenderViewHost* render_view_host =
-      web_contents()->GetRenderViewHost();
-  content::RenderProcessHost* host = render_view_host->GetProcess();
-  const int render_process_id = host->GetID();
-  const int render_view_routing_id = render_view_host->GetRoutingID();
-  bool is_guest_view;
-  scoped_refptr<CefBrowserInfo> browser_info =
-      CefBrowserInfoManager::GetInstance()->GetBrowserInfoForFrame(
-          render_process_id, render_view_routing_id, &is_guest_view);
-  if (browser_info.get())
-    CefBrowserInfoManager::GetInstance()->RemoveBrowserInfo(browser_info);
+  if (browser_info_.get())
+    CefBrowserInfoManager::GetInstance()->RemoveBrowserInfo(browser_info_);
+
+  Profile* profile =
+    Profile::FromBrowserContext(web_contents()->GetBrowserContext());
+
+  content::BrowserContext::GetDownloadManager(profile)->Shutdown();
 }
 
 }  // namespace printing

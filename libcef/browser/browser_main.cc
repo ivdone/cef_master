@@ -17,6 +17,7 @@
 #include "libcef/browser/extensions/extension_system_factory.h"
 #include "libcef/browser/extensions/extensions_browser_client.h"
 #include "libcef/browser/net/chrome_scheme_handler.h"
+#include "libcef/browser/printing/constrained_window_views_client.h"
 #include "libcef/browser/printing/printing_message_filter.h"
 #include "libcef/browser/thread_util.h"
 #include "libcef/common/extensions/extensions_client.h"
@@ -27,7 +28,6 @@
 #include "base/message_loop/message_loop.h"
 #include "base/strings/string_number_conversions.h"
 #include "chrome/browser/plugins/plugin_finder.h"
-#include "chrome/browser/ui/views/chrome_constrained_window_views_client.h"
 #include "components/constrained_window/constrained_window_views.h"
 #include "content/public/browser/gpu_data_manager.h"
 #include "extensions/browser/extension_system.h"
@@ -79,7 +79,7 @@ void CefBrowserMainParts::PreEarlyInitialization() {
 }
 
 void CefBrowserMainParts::ToolkitInitialized() {
-  SetConstrainedWindowViewsClient(CreateChromeConstrainedWindowViewsClient());
+  SetConstrainedWindowViewsClient(CreateCefConstrainedWindowViewsClient());
 #if defined(USE_AURA)
   CHECK(aura::Env::GetInstance());
 

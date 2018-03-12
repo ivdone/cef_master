@@ -66,7 +66,7 @@ class SiteInstance;
 
 // Implementation of CefBrowser.
 //
-// WebContentsDelegate: Interface for handling WebContents delegations. There is
+// WebContentsDelegate: Interface for handling WebContentOpenURLFromTabs delegations. There is
 // a one-to-one relationship between CefBrowserHostImpl and WebContents
 // instances.
 //
@@ -190,15 +190,6 @@ class CefBrowserHostImpl
                      uint32 max_image_size,
                      bool bypass_cache,
                      CefRefPtr<CefDownloadImageCallback> callback) override;
-  bool IsWebContentsVisible(content::WebContents* web_contents) override;
-  web_modal::WebContentsModalDialogHost* GetWebContentsModalDialogHost()
-      override;
-  gfx::NativeView GetHostView() const override;
-  gfx::Point GetDialogPosition(const gfx::Size& size) override;
-  gfx::Size GetMaximumDialogSize() override;
-  void AddObserver(web_modal::ModalDialogHostObserver* observer) override;
-  void RemoveObserver(web_modal::ModalDialogHostObserver* observer) override;
-  void OnViewWasResized();
   void Print() override;
   void PrintToPDF(const CefString& path,
                   const CefPdfPrintSettings& settings,
@@ -532,6 +523,18 @@ class CefBrowserHostImpl
   void AddObserver(Observer* observer);
   void RemoveObserver(Observer* observer);
   bool HasObserver(Observer* observer) const;
+  
+  // web_modal::WebContentsModalDialogManagerDelegate methods
+  bool IsWebContentsVisible(content::WebContents* web_contents) override;
+  web_modal::WebContentsModalDialogHost* GetWebContentsModalDialogHost()
+    override;
+
+  // web_modal::WebContentsModalDialogHost methods
+  gfx::NativeView GetHostView() const override;
+  gfx::Point GetDialogPosition(const gfx::Size& size) override;
+  gfx::Size GetMaximumDialogSize() override;
+  void AddObserver(web_modal::ModalDialogHostObserver* observer) override;
+  void RemoveObserver(web_modal::ModalDialogHostObserver* observer) override;
 
  private:
   class DevToolsWebContentsObserver;
@@ -641,6 +644,8 @@ class CefBrowserHostImpl
   // TODO(cef): With the introduction of OOPIFs, WebContents can span multiple
   // processes. Messages should be sent to specific RenderFrameHosts instead.
   bool Send(IPC::Message* message);
+
+  void OnViewWasResized();
 
   CefBrowserSettings settings_;
   CefRefPtr<CefClient> client_;
