@@ -25,6 +25,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/webui/print_preview/print_preview_ui.h"
 #include "components/printing/common/print_messages.h"
+#include "content/browser/download/download_manager_impl.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/download_manager.h"

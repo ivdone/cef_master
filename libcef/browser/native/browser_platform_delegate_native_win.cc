@@ -575,18 +575,6 @@ gfx::Size CefBrowserPlatformDelegateNativeWin::GetMaximumDialogSize() {
   return GetWindowWidget()->GetWindowBoundsInScreen().size();
 }
 
-gfx::Point CefBrowserPlatformDelegateNativeWin::GetDialogPosition(
-    const gfx::Size& size) {
-  gfx::Size app_window_size =
-      GetWindowWidget()->GetWindowBoundsInScreen().size();
-  return gfx::Point(app_window_size.width() / 2 - size.width() / 2,
-                    app_window_size.height() / 2 - size.height() / 2);
-}
-
-gfx::Size CefBrowserPlatformDelegateNativeWin::GetMaximumDialogSize() {
-  return GetWindowWidget()->GetWindowBoundsInScreen().size();
-}
-
 // static
 void CefBrowserPlatformDelegateNativeWin::RegisterWindowClass() {
   static bool registered = false;

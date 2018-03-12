@@ -784,48 +784,6 @@ void CefBrowserHostImpl::DownloadImage(
       bypass_cache, base::Bind(OnDownloadImage, max_image_size, callback));
 }
 
-bool CefBrowserHostImpl::IsWebContentsVisible(
-    content::WebContents* web_contents) {
-  return platform_util::IsVisible(web_contents->GetNativeView());
-}
-
-web_modal::WebContentsModalDialogHost*
-CefBrowserHostImpl::GetWebContentsModalDialogHost() {
-  return this;
-}
-
-gfx::NativeView CefBrowserHostImpl::GetHostView() const {
-#if defined(USE_AURA)
-  return GetWindowWidget()->GetNativeView();
-#else
-  return GetHostWindowHandle();
-#endif
-}
-
-gfx::Point CefBrowserHostImpl::GetDialogPosition(const gfx::Size& size) {
-  return platform_delegate_->GetDialogPosition(size);
-}
-
-gfx::Size CefBrowserHostImpl::GetMaximumDialogSize() {
-  return platform_delegate_->GetMaximumDialogSize();
-}
-
-void CefBrowserHostImpl::AddObserver(
-    web_modal::ModalDialogHostObserver* observer) {
-  if (observer && !observer_list_.HasObserver(observer))
-    observer_list_.AddObserver(observer);
-}
-
-void CefBrowserHostImpl::RemoveObserver(
-    web_modal::ModalDialogHostObserver* observer) {
-  observer_list_.RemoveObserver(observer);
-}
-
-void CefBrowserHostImpl::OnViewWasResized() {
-  for (auto& observer : observer_list_)
-    observer.OnPositionRequiresUpdate();
-}
-
 void CefBrowserHostImpl::Print() {
   if (CEF_CURRENTLY_ON_UIT()) {
     content::WebContents* actionable_contents = GetActionableWebContents();
