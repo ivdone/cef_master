@@ -57,7 +57,7 @@ index 0e061e83bf94..687e822a2550 100644
  }
  
 diff --git chrome/browser/ui/webui/print_preview/print_preview_handler.cc chrome/browser/ui/webui/print_preview/print_preview_handler.cc
-index 2913dbfdc781..4ef329f632f4 100644
+index 2913dbfdc781..68d59e122a17 100644
 --- chrome/browser/ui/webui/print_preview/print_preview_handler.cc
 +++ chrome/browser/ui/webui/print_preview/print_preview_handler.cc
 @@ -75,6 +75,8 @@
@@ -92,25 +92,13 @@ index 2913dbfdc781..4ef329f632f4 100644
      }
      return privet_printer_handler_.get();
    }
-+#else
++#else // !BUILDFLAG(ENABLE_SERVICE_DISCOVERY)
 +  if (printer_type == PrinterType::kPrivetPrinter)
 +    return nullptr;
  #endif
    if (printer_type == PrinterType::kPdfPrinter) {
      if (!pdf_printer_handler_) {
-diff --git chrome/browser/ui/webui/print_preview/printer_handler.cc chrome/browser/ui/webui/print_preview/printer_handler.cc
-index bf297f51a01a..ebfd188f53ea 100644
---- chrome/browser/ui/webui/print_preview/printer_handler.cc
-+++ chrome/browser/ui/webui/print_preview/printer_handler.cc
-@@ -5,6 +5,7 @@
- #include "chrome/browser/ui/webui/print_preview/printer_handler.h"
- 
- #include "build/buildflag.h"
-+#include "base/memory/ptr_util.h"
- #include "chrome/browser/ui/webui/print_preview/extension_printer_handler.h"
- #include "chrome/browser/ui/webui/print_preview/pdf_printer_handler.h"
- #include "chrome/common/features.h"
-diff --git content/browser/download/download_manager_impl.cc b/content/browser/download/download_manager_impl.cc
+diff --git content/browser/download/download_manager_impl.cc content/browser/download/download_manager_impl.cc
 index 52962a868999..506983be25df 100644
 --- content/browser/download/download_manager_impl.cc
 +++ content/browser/download/download_manager_impl.cc
@@ -125,7 +113,7 @@ index 52962a868999..506983be25df 100644
  DownloadItemImpl* DownloadManagerImpl::CreateActiveItem(
 diff --git ui/shell_dialogs/base_shell_dialog_win.cc ui/shell_dialogs/base_shell_dialog_win.cc
 index 9ccd1bbc4562..23d14323fcb7 100644
---- ui/shell_dialogs/base_shell_dialog_win.cc
+--- a/ui/shell_dialogs/base_shell_dialog_win.cc
 +++ ui/shell_dialogs/base_shell_dialog_win.cc
 @@ -30,7 +30,7 @@ BaseShellDialogImpl::RunState BaseShellDialogImpl::BeginRun(HWND owner) {
    DCHECK(!IsRunningDialogForOwner(owner));
