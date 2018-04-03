@@ -17,7 +17,7 @@
 #include "chrome/browser/printing/print_preview_dialog_controller.h"
 #include "components/net_log/chrome_net_log.h"
 #include "content/public/common/content_switches.h"
-#include "ui/message_center/message_center.h"
+#include "services/network/public/cpp/network_switches.h"
 
 ChromeBrowserProcessStub::ChromeBrowserProcessStub()
     : initialized_(false),
@@ -169,11 +169,6 @@ ChromeBrowserProcessStub::notification_platform_bridge() {
   return NULL;
 }
 
-message_center::MessageCenter* ChromeBrowserProcessStub::message_center() {
-  NOTREACHED();
-  return NULL;
-}
-
 policy::ChromeBrowserPolicyConnector*
 ChromeBrowserProcessStub::browser_policy_connector() {
   NOTREACHED();
@@ -195,9 +190,7 @@ GpuModeManager* ChromeBrowserProcessStub::gpu_mode_manager() {
   return NULL;
 }
 
-void ChromeBrowserProcessStub::CreateDevToolsHttpProtocolHandler(
-    const std::string& ip,
-    uint16_t port) {
+void ChromeBrowserProcessStub::CreateDevToolsProtocolHandler() {
   NOTREACHED();
 }
 
@@ -304,10 +297,10 @@ net_log::ChromeNetLog* ChromeBrowserProcessStub::net_log() {
   if (!net_log_) {
     const base::CommandLine& command_line =
         *base::CommandLine::ForCurrentProcess();
-    net_log_ = base::MakeUnique<net_log::ChromeNetLog>();
-    if (command_line.HasSwitch(switches::kLogNetLog)) {
+    net_log_ = std::make_unique<net_log::ChromeNetLog>();
+    if (command_line.HasSwitch(network::switches::kLogNetLog)) {
       net_log_->StartWritingToFile(
-          command_line.GetSwitchValuePath(switches::kLogNetLog),
+          command_line.GetSwitchValuePath(network::switches::kLogNetLog),
           GetNetCaptureModeFromCommandLine(command_line),
           command_line.GetCommandLineString(), std::string());
     }

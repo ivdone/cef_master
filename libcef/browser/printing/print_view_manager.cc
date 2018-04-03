@@ -36,6 +36,8 @@
 #include "content/public/browser/web_contents_observer.h"
 #include "printing/pdf_metafile_skia.h"
 
+#include "libcef/browser/thread_util.h"
+
 using content::BrowserThread;
 
 DEFINE_WEB_CONTENTS_USER_DATA_KEY(printing::CefPrintViewManager);
@@ -146,7 +148,7 @@ scoped_refptr<base::RefCountedBytes> GetDataFromHandle(
     base::SharedMemoryHandle handle,
     uint32_t data_size) {
   std::unique_ptr<base::SharedMemory> shared_buf =
-      base::MakeUnique<base::SharedMemory>(handle, true);
+      std::make_unique<base::SharedMemory>(handle, true);
 
   if (!shared_buf->Map(data_size)) {
     NOTREACHED();
@@ -162,10 +164,10 @@ scoped_refptr<base::RefCountedBytes> GetDataFromHandle(
 void SavePdfFile(scoped_refptr<base::RefCountedBytes> data,
                  const base::FilePath& path,
                  const CefPrintViewManager::PdfPrintCallback& callback) {
-  DCHECK_CURRENTLY_ON(BrowserThread::FILE);
+  CEF_REQUIRE_BLOCKING();
   DCHECK_GT(data->size(), 0U);
 
-  PdfMetafileSkia metafile(SkiaDocumentType::PDF);
+  PdfMetafileSkia metafile;
   metafile.InitFromData(static_cast<const void*>(data->front()), data->size());
 
   base::File file(path,
@@ -311,8 +313,8 @@ void CefPrintViewManager::OnMetafileReadyForPrinting_PrintToPdf(
   if (!pdf_print_state_)
     return;
 
-  scoped_refptr<base::RefCountedBytes> data_bytes =
-      GetDataFromHandle(params.metafile_data_handle, params.data_size);
+  scoped_refptr<base::RefCountedBytes> data_bytes = GetDataFromHandle(
+      params.content.metafile_data_handle, params.content.data_size);
   if (!data_bytes || !data_bytes->size()) {
     TerminatePdfPrintJob();
     return;
@@ -325,8 +327,7 @@ void CefPrintViewManager::OnMetafileReadyForPrinting_PrintToPdf(
   pdf_print_state_.reset();
 
   // Save the PDF file to disk and then execute the callback.
-  BrowserThread::PostTask(
-      BrowserThread::FILE, FROM_HERE,
+  CEF_POST_USER_VISIBLE_TASK(
       base::Bind(&SavePdfFile, data_bytes, output_path, print_callback));
 }
 
