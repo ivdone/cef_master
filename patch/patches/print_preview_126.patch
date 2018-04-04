@@ -1,17 +1,17 @@
 diff --git chrome/browser/download/chrome_download_manager_delegate.cc chrome/browser/download/chrome_download_manager_delegate.cc
-index c313b2efb27a..36f54c5c8224 100644
+index 5ab37f0ec505..cf8f15483899 100644
 --- chrome/browser/download/chrome_download_manager_delegate.cc
 +++ chrome/browser/download/chrome_download_manager_delegate.cc
-@@ -83,6 +83,8 @@
+@@ -84,6 +84,8 @@
  #include "extensions/common/constants.h"
  #endif
  
 +#include "cef/libcef/features/features.h"
 +
  using content::BrowserThread;
- using content::DownloadItem;
+ using download::DownloadItem;
  using content::DownloadManager;
-@@ -266,11 +268,13 @@ ChromeDownloadManagerDelegate::ChromeDownloadManagerDelegate(Profile* profile)
+@@ -267,6 +269,7 @@ ChromeDownloadManagerDelegate::ChromeDownloadManagerDelegate(Profile* profile)
            {base::MayBlock(), base::TaskPriority::BACKGROUND,
             base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN})),
        weak_ptr_factory_(this) {
@@ -19,13 +19,15 @@ index c313b2efb27a..36f54c5c8224 100644
    DCHECK(!profile_->GetPath().empty());
    base::FilePath metadata_cache_file =
        profile_->GetPath().Append(chrome::kDownloadMetadataStoreFilename);
-   download_metadata_cache_.reset(new download::InProgressCacheImpl(
-       metadata_cache_file, disk_access_task_runner_));
+@@ -275,6 +278,7 @@ ChromeDownloadManagerDelegate::ChromeDownloadManagerDelegate(Profile* profile)
+ #if defined(OS_ANDROID)
+   location_dialog_bridge_.reset(new DownloadLocationDialogBridge);
+ #endif
 +#endif
  }
  
  ChromeDownloadManagerDelegate::~ChromeDownloadManagerDelegate() {
-@@ -549,6 +553,7 @@ void ChromeDownloadManagerDelegate::ChooseSavePath(
+@@ -561,6 +565,7 @@ void ChromeDownloadManagerDelegate::ChooseSavePath(
  }
  
  download::InProgressCache* ChromeDownloadManagerDelegate::GetInProgressCache() {
@@ -113,7 +115,7 @@ index 52962a868999..506983be25df 100644
  DownloadItemImpl* DownloadManagerImpl::CreateActiveItem(
 diff --git ui/shell_dialogs/base_shell_dialog_win.cc ui/shell_dialogs/base_shell_dialog_win.cc
 index 9ccd1bbc4562..23d14323fcb7 100644
---- a/ui/shell_dialogs/base_shell_dialog_win.cc
+--- ui/shell_dialogs/base_shell_dialog_win.cc
 +++ ui/shell_dialogs/base_shell_dialog_win.cc
 @@ -30,7 +30,7 @@ BaseShellDialogImpl::RunState BaseShellDialogImpl::BeginRun(HWND owner) {
    DCHECK(!IsRunningDialogForOwner(owner));
