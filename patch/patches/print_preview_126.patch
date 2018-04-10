@@ -1,40 +1,3 @@
-diff --git chrome/browser/download/chrome_download_manager_delegate.cc chrome/browser/download/chrome_download_manager_delegate.cc
-index 5ab37f0ec505..cf8f15483899 100644
---- chrome/browser/download/chrome_download_manager_delegate.cc
-+++ chrome/browser/download/chrome_download_manager_delegate.cc
-@@ -84,6 +84,8 @@
- #include "extensions/common/constants.h"
- #endif
- 
-+#include "cef/libcef/features/features.h"
-+
- using content::BrowserThread;
- using download::DownloadItem;
- using content::DownloadManager;
-@@ -267,6 +269,7 @@ ChromeDownloadManagerDelegate::ChromeDownloadManagerDelegate(Profile* profile)
-           {base::MayBlock(), base::TaskPriority::BACKGROUND,
-            base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN})),
-       weak_ptr_factory_(this) {
-+#if !BUILDFLAG(ENABLE_CEF)
-   DCHECK(!profile_->GetPath().empty());
-   base::FilePath metadata_cache_file =
-       profile_->GetPath().Append(chrome::kDownloadMetadataStoreFilename);
-@@ -275,6 +278,7 @@ ChromeDownloadManagerDelegate::ChromeDownloadManagerDelegate(Profile* profile)
- #if defined(OS_ANDROID)
-   location_dialog_bridge_.reset(new DownloadLocationDialogBridge);
- #endif
-+#endif
- }
- 
- ChromeDownloadManagerDelegate::~ChromeDownloadManagerDelegate() {
-@@ -561,6 +565,7 @@ void ChromeDownloadManagerDelegate::ChooseSavePath(
- }
- 
- download::InProgressCache* ChromeDownloadManagerDelegate::GetInProgressCache() {
-+  return nullptr;
-   DCHECK(download_metadata_cache_ != nullptr);
-   return download_metadata_cache_.get();
- }
 diff --git chrome/browser/ui/webui/constrained_web_dialog_ui.cc chrome/browser/ui/webui/constrained_web_dialog_ui.cc
 index 0e061e83bf94..687e822a2550 100644
 --- chrome/browser/ui/webui/constrained_web_dialog_ui.cc
@@ -126,3 +89,67 @@ index 9ccd1bbc4562..23d14323fcb7 100644
    RunState run_state;
    run_state.dialog_thread = CreateDialogThread();
    run_state.owner = owner;
+diff --git chrome/browser/ui/webui/print_preview/pdf_printer_handler.cc chrome/browser/ui/webui/print_preview/pdf_printer_handler.cc
+index 52fbb52e8957..28e5e74c0d41 100644
+--- chrome/browser/ui/webui/print_preview/pdf_printer_handler.cc
++++ chrome/browser/ui/webui/print_preview/pdf_printer_handler.cc
+@@ -151,6 +151,7 @@ PdfPrinterHandler::PdfPrinterHandler(Profile* profile,
+     : preview_web_contents_(preview_web_contents),
+       profile_(profile),
+       sticky_settings_(sticky_settings),
++      download_prefs_(new DownloadPrefs(profile)),
+       weak_ptr_factory_(this) {}
+ 
+ PdfPrinterHandler::~PdfPrinterHandler() {
+@@ -227,8 +228,7 @@ void PdfPrinterHandler::FileSelected(const base::FilePath& path,
+                                      int /* index */,
+                                      void* /* params */) {
+   // Update downloads location and save sticky settings.
+-  DownloadPrefs* download_prefs = DownloadPrefs::FromBrowserContext(profile_);
+-  download_prefs->SetSaveFilePath(path.DirName());
++  download_prefs_->SetSaveFilePath(path.DirName());
+   sticky_settings_->SaveInPrefs(profile_->GetPrefs());
+   print_to_pdf_path_ = path;
+   PostPrintToPdfTask();
+@@ -319,8 +319,7 @@ void PdfPrinterHandler::SelectFile(const base::FilePath& default_filename,
+   }
+ 
+   // Get save location from Download Preferences.
+-  DownloadPrefs* download_prefs = DownloadPrefs::FromBrowserContext(profile_);
+-  base::FilePath path = download_prefs->SaveFilePath();
++  base::FilePath path = download_prefs_->SaveFilePath();
+   sticky_settings_->SaveInPrefs(profile_->GetPrefs());
+ 
+   // Handle the no prompting case. Like the dialog prompt, this function
+@@ -343,7 +342,7 @@ void PdfPrinterHandler::SelectFile(const base::FilePath& default_filename,
+ 
+   // Get default download directory. This will be used as a fallback if the
+   // save directory does not exist.
+-  base::FilePath default_path = download_prefs->DownloadPath();
++  base::FilePath default_path = download_prefs_->DownloadPath();
+   base::PostTaskWithTraitsAndReplyWithResult(
+       FROM_HERE, {base::MayBlock(), base::TaskPriority::BACKGROUND},
+       base::BindOnce(&SelectSaveDirectory, path, default_path),
+diff --git a/chrome/browser/ui/webui/print_preview/pdf_printer_handler.h b/chrome/browser/ui/webui/print_preview/pdf_printer_handler.h
+index 641fb89cc832..6e0101a1ab74 100644
+--- a/chrome/browser/ui/webui/print_preview/pdf_printer_handler.h
++++ b/chrome/browser/ui/webui/print_preview/pdf_printer_handler.h
+@@ -32,6 +32,7 @@ namespace printing {
+ class StickySettings;
+ }
+ 
++class DownloadPrefs;
+ class GURL;
+ class Profile;
+ 
+@@ -98,6 +99,10 @@ class PdfPrinterHandler : public PrinterHandler,
+ 
+   Profile* const profile_;
+   printing::StickySettings* const sticky_settings_;
++  // we create and store download_prefs_ per print preview.
++  // originally the download_prefs_ will be retrieved using ChromeDownloadManagerDelegate::download_prefs()
++  // We cannot do that in CefDownloadManagerDelegate because this method is not in the base class.
++  DownloadPrefs* const download_prefs_;
+ 
+   // Holds the path to the print to pdf request. It is empty if no such request
+   // exists.

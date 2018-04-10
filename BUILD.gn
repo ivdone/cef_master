@@ -601,6 +601,12 @@ static_library("libcef_static") {
 
     "//chrome/browser/local_discovery/service_discovery_device_lister.cc",
     "//chrome/browser/local_discovery/service_discovery_device_lister.h",
+    "//chrome/browser/local_discovery/service_discovery_client_impl.cc",
+    "//chrome/browser/local_discovery/service_discovery_client_impl.h",
+    "//chrome/browser/local_discovery/service_discovery_client.cc",
+    "//chrome/browser/local_discovery/service_discovery_client.h",
+    "//chrome/browser/local_discovery/service_discovery_shared_client.cc",
+    "//chrome/browser/local_discovery/service_discovery_shared_client.h",    
   ]
 
   configs += [

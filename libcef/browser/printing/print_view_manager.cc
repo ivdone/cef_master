@@ -7,6 +7,7 @@
 #include "include/internal/cef_types_wrappers.h"
 #include "libcef/browser/browser_info.h"
 #include "libcef/browser/browser_info_manager.h"
+#include "libcef/browser/download_manager_delegate.h"
 
 #include <map>
 #include <utility>
@@ -16,7 +17,6 @@
 #include "base/memory/ptr_util.h"
 #include "base/memory/ref_counted_memory.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/download/chrome_download_manager_delegate.h"
 #include "chrome/browser/printing/print_job_manager.h"
 #include "chrome/browser/printing/print_preview_dialog_controller.h"
 #include "chrome/browser/printing/print_preview_message_handler.h"
@@ -384,20 +384,17 @@ void CefPrintViewManager::CefPrintPreviewHelper::InitializeForCef() {
   content::DownloadManager* manager_ =
     content::BrowserContext::GetDownloadManager(profile);
 
-  manager_->SetDelegate(new ChromeDownloadManagerDelegate(profile));
+  if (!manager_->GetDelegate())
+    manager_->SetDelegate(new CefDownloadManagerDelegate(manager_));
 
   browser_info_ = CefBrowserInfoManager::GetInstance()->
     CreatePopupBrowserInfo(print_preview, true);
+
 }
 
 void CefPrintViewManager::CefPrintPreviewHelper::WebContentsDestroyed() {
   if (browser_info_.get())
     CefBrowserInfoManager::GetInstance()->RemoveBrowserInfo(browser_info_);
-
-  Profile* profile =
-    Profile::FromBrowserContext(web_contents()->GetBrowserContext());
-
-  content::BrowserContext::GetDownloadManager(profile)->Shutdown();
 }
 
 }  // namespace printing
