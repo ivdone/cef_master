@@ -75,7 +75,7 @@
 #include "content/public/common/favicon_url.h"
 #include "extensions/browser/process_manager.h"
 #include "net/base/net_errors.h"
-#include "third_party/WebKit/public/web/WebFindOptions.h"
+#include "third_party/blink/public/web/web_find_options.h"
 #include "ui/events/base_event_utils.h"
 #include "ui/views/widget/widget.h"
 
@@ -1005,16 +1005,17 @@ void CefBrowserHostImpl::SetAutoResizeEnabled(bool enabled,
     return;
   }
 
-  if (!web_contents() || !web_contents()->GetRenderViewHost())
+  if (enabled == auto_resize_enabled_)
     return;
 
+  auto_resize_enabled_ = enabled;
   if (enabled) {
-    web_contents()->GetRenderViewHost()->EnableAutoResize(
-        gfx::Size(min_size.width, min_size.height),
-        gfx::Size(max_size.width, max_size.height));
+    auto_resize_min_ = gfx::Size(min_size.width, min_size.height);
+    auto_resize_max_ = gfx::Size(max_size.width, max_size.height);
   } else {
-    web_contents()->GetRenderViewHost()->DisableAutoResize(gfx::Size());
+    auto_resize_min_ = auto_resize_max_ = gfx::Size();
   }
+  ConfigureAutoResize();
 }
 
 CefRefPtr<CefExtension> CefBrowserHostImpl::GetExtension() {
@@ -1596,10 +1597,13 @@ CefRefPtr<CefFrame> CefBrowserHostImpl::GetFrameForRequest(
       content::ResourceRequestInfo::ForRequest(request);
   if (!info)
     return nullptr;
-  // The value of |IsMainFrame| is unreliable when |IsDownload| returns true.
+  // The value of |IsMainFrame| is unreliable in these cases.
+  const bool is_main_frame_state_flaky =
+      info->IsDownload() ||
+      info->GetResourceType() == content::RESOURCE_TYPE_XHR;
   return GetOrCreateFrame(info->GetRenderFrameID(), info->GetFrameTreeNodeId(),
                           CefFrameHostImpl::kUnspecifiedFrameId,
-                          info->IsMainFrame(), info->IsDownload(),
+                          info->IsMainFrame(), is_main_frame_state_flaky,
                           base::string16(), GURL());
 }
 
@@ -2228,6 +2232,16 @@ void CefBrowserHostImpl::LoadingStateChanged(content::WebContents* source,
   }
 }
 
+void CefBrowserHostImpl::LoadProgressChanged(content::WebContents* source,
+                                             double progress) {
+  if (client_.get()) {
+    CefRefPtr<CefDisplayHandler> handler = client_->GetDisplayHandler();
+    if (handler.get()) {
+      handler->OnLoadingProgressChange(this, progress);
+    }
+  }
+}
+
 void CefBrowserHostImpl::CloseContents(content::WebContents* source) {
   CEF_REQUIRE_UIT();
 
@@ -2582,7 +2596,7 @@ void CefBrowserHostImpl::RequestMediaAccessPermission(
 }
 
 bool CefBrowserHostImpl::CheckMediaAccessPermission(
-    content::WebContents* web_contents,
+    content::RenderFrameHost* render_frame_host,
     const GURL& security_origin,
     content::MediaStreamType type) {
   // Check media access permission without prompting the user. This is called
@@ -2700,6 +2714,8 @@ void CefBrowserHostImpl::RenderViewDeleted(
 }
 
 void CefBrowserHostImpl::RenderViewReady() {
+  ConfigureAutoResize();
+
   // Send the queued messages.
   queue_messages_ = false;
   while (!queued_messages_.empty()) {
@@ -3260,7 +3276,7 @@ CefRefPtr<CefFrame> CefBrowserHostImpl::GetOrCreateFrame(
     int frame_tree_node_id,
     int64 parent_frame_id,
     bool is_main_frame,
-    bool is_download,
+    bool is_main_frame_state_flaky,
     base::string16 frame_name,
     const GURL& frame_url) {
   // We need either a valid |frame_id| or a valid |frame_tree_node_id|.
@@ -3281,13 +3297,13 @@ CefRefPtr<CefFrame> CefBrowserHostImpl::GetOrCreateFrame(
 
   if (frame_id < 0) {
     // With PlzNavigate the renderer process representation might not exist yet.
-    if ((is_main_frame || is_download) &&
+    if ((is_main_frame || is_main_frame_state_flaky) &&
         main_frame_id_ != CefFrameHostImpl::kInvalidFrameId) {
       // Operating in the main frame. Continue using the existing main frame
       // object until the new renderer process representation is created.
       frame_id = main_frame_id_;
     } else {
-      if (is_main_frame || is_download) {
+      if (is_main_frame || is_main_frame_state_flaky) {
         // Always use the same pending object for the main frame.
         frame_tree_node_id = kMainFrameTreeNodeId;
       }
@@ -3355,7 +3371,7 @@ CefRefPtr<CefFrame> CefBrowserHostImpl::GetOrCreateFrame(
     }
   }
 
-  if (!frame_created && !is_download)
+  if (!frame_created && !is_main_frame_state_flaky)
     frame->SetAttributes(is_main_frame, url, name, parent_frame_id);
 
 #if DCHECK_IS_ON()
@@ -3543,6 +3559,20 @@ void CefBrowserHostImpl::EnsureFileDialogManager() {
   if (!file_dialog_manager_.get() && platform_delegate_) {
     file_dialog_manager_.reset(new CefFileDialogManager(
         this, platform_delegate_->CreateFileDialogRunner()));
+  }
+}
+
+void CefBrowserHostImpl::ConfigureAutoResize() {
+  CEF_REQUIRE_UIT();
+  if (!web_contents() || !web_contents()->GetRenderWidgetHostView()) {
+    return;
+  }
+
+  if (auto_resize_enabled_) {
+    web_contents()->GetRenderWidgetHostView()->EnableAutoResize(
+        auto_resize_min_, auto_resize_max_);
+  } else {
+    web_contents()->GetRenderWidgetHostView()->DisableAutoResize(gfx::Size());
   }
 }
 

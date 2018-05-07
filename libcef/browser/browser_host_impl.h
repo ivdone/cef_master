@@ -412,6 +412,8 @@ class CefBrowserHostImpl
                       bool* was_blocked) override;
   void LoadingStateChanged(content::WebContents* source,
                            bool to_different_document) override;
+  void LoadProgressChanged(content::WebContents* source,
+                           double progress) override;
   void CloseContents(content::WebContents* source) override;
   void UpdateTargetURL(content::WebContents* source, const GURL& url) override;
   bool DidAddMessageToConsole(content::WebContents* source,
@@ -476,7 +478,7 @@ class CefBrowserHostImpl
       content::WebContents* web_contents,
       const content::MediaStreamRequest& request,
       const content::MediaResponseCallback& callback) override;
-  bool CheckMediaAccessPermission(content::WebContents* web_contents,
+  bool CheckMediaAccessPermission(content::RenderFrameHost* render_frame_host,
                                   const GURL& security_origin,
                                   content::MediaStreamType type) override;
   bool IsNeverVisible(content::WebContents* web_contents) override;
@@ -601,13 +603,13 @@ class CefBrowserHostImpl
   // if PlzNavigate is disabled; or >= 0 otherwise. |parent_frame_id| will be
   // CefFrameHostImpl::kUnspecifiedFrameId if unknown. In cases where |frame_id|
   // is < 0 either the existing main frame object or a pending object will be
-  // returned depending on current state. If |is_download| is true then the
-  // value of |is_main_frame| cannot be relied on.
+  // returned depending on current state. If |is_main_frame_state_flaky| is true
+  // then the value of |is_main_frame| cannot be relied on.
   CefRefPtr<CefFrame> GetOrCreateFrame(int64 frame_id,
                                        int frame_tree_node_id,
                                        int64 parent_frame_id,
                                        bool is_main_frame,
-                                       bool is_download,
+                                       bool is_main_frame_state_flaky,
                                        base::string16 frame_name,
                                        const GURL& frame_url);
 
@@ -640,6 +642,8 @@ class CefBrowserHostImpl
 
   // Create the CefFileDialogManager if it doesn't already exist.
   void EnsureFileDialogManager();
+
+  void ConfigureAutoResize();
 
   // Send a message to the RenderViewHost associated with this browser.
   // TODO(cef): With the introduction of OOPIFs, WebContents can span multiple
@@ -743,6 +747,11 @@ class CefBrowserHostImpl
   extensions::ExtensionHost* extension_host_ = nullptr;
   CefRefPtr<CefExtension> extension_;
   bool is_background_host_ = false;
+
+  // Used with auto-resize.
+  bool auto_resize_enabled_ = false;
+  gfx::Size auto_resize_min_;
+  gfx::Size auto_resize_max_;
 
   // Used to notify WebContentsModalDialog
   base::ObserverList<web_modal::ModalDialogHostObserver> observer_list_;

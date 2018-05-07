@@ -24,18 +24,18 @@
 #include "libcef/common/content_client.h"
 #include "libcef/common/task_runner_impl.h"
 #include "libcef/common/tracker.h"
+#include "libcef/renderer/blink_glue.h"
 #include "libcef/renderer/browser_impl.h"
 #include "libcef/renderer/render_frame_util.h"
 #include "libcef/renderer/thread_util.h"
-#include "libcef/renderer/webkit_glue.h"
 
 #include "base/bind.h"
 #include "base/lazy_instance.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/threading/thread_local.h"
-#include "third_party/WebKit/public/web/WebFrame.h"
-#include "third_party/WebKit/public/web/WebKit.h"
-#include "third_party/WebKit/public/web/WebLocalFrame.h"
+#include "third_party/blink/public/web/blink.h"
+#include "third_party/blink/public/web/web_frame.h"
+#include "third_party/blink/public/web/web_local_frame.h"
 #include "url/gurl.h"
 
 namespace {
@@ -304,6 +304,74 @@ class V8TrackString : public CefTrackNode {
   std::string string_;
 };
 
+class V8TrackArrayBuffer : public CefTrackNode {
+ public:
+  explicit V8TrackArrayBuffer(
+      v8::Isolate* isolate,
+      void* buffer,
+      CefRefPtr<CefV8ArrayBufferReleaseCallback> release_callback)
+      : isolate_(isolate),
+        buffer_(buffer),
+        release_callback_(release_callback) {
+    DCHECK(isolate_);
+  }
+
+  ~V8TrackArrayBuffer() {
+    if (buffer_ != nullptr) {
+      release_callback_->ReleaseBuffer(buffer_);
+    }
+    isolate_->AdjustAmountOfExternalAllocatedMemory(
+        -static_cast<int>(sizeof(V8TrackArrayBuffer)));
+  }
+
+  CefRefPtr<CefV8ArrayBufferReleaseCallback> GetReleaseCallback() {
+    return release_callback_;
+  }
+
+  void Neuter() { buffer_ = nullptr; }
+
+  // Retrieve the track object for the specified V8 object.
+  static V8TrackArrayBuffer* Unwrap(v8::Local<v8::Context> context,
+                                    v8::Local<v8::Object> object) {
+    v8::Local<v8::Value> value;
+    if (GetPrivate(context, object, kCefTrackObject, &value))
+      return static_cast<V8TrackArrayBuffer*>(
+          v8::External::Cast(*value)->Value());
+
+    return nullptr;
+  }
+
+  // Attach this track object to the specified V8 object.
+  void AttachTo(v8::Local<v8::Context> context,
+                v8::Local<v8::ArrayBuffer> arrayBuffer) {
+    isolate_->AdjustAmountOfExternalAllocatedMemory(
+        static_cast<int>(sizeof(V8TrackArrayBuffer)));
+
+    SetPrivate(context, arrayBuffer, kCefTrackObject,
+               v8::External::New(isolate_, this));
+
+    handle_.Reset(isolate_, arrayBuffer);
+    handle_.SetWeak(this, FirstWeakCallback, v8::WeakCallbackType::kParameter);
+    handle_.MarkIndependent();
+  }
+
+ private:
+  static void FirstWeakCallback(
+      const v8::WeakCallbackInfo<V8TrackArrayBuffer>& data) {
+    V8TrackArrayBuffer* wrapper = data.GetParameter();
+    if (wrapper->buffer_ != nullptr) {
+      wrapper->release_callback_->ReleaseBuffer(wrapper->buffer_);
+      wrapper->buffer_ = nullptr;
+    }
+    wrapper->handle_.Reset();
+  }
+
+  v8::Isolate* isolate_;
+  void* buffer_;
+  CefRefPtr<CefV8ArrayBufferReleaseCallback> release_callback_;
+  v8::Persistent<v8::ArrayBuffer> handle_;
+};
+
 // Object wrapped in a v8::External and passed as the Data argument to
 // v8::FunctionTemplate::New.
 class V8FunctionData {
@@ -557,9 +625,9 @@ void AccessorNameSetterCallbackImpl(
 }
 
 // Two helper functions for V8 Interceptor callbacks.
-CefString PropertyToIndex(v8::Local<v8::String> str) {
+CefString PropertyToIndex(v8::Local<v8::Name> property) {
   CefString name;
-  GetCefString(str, name);
+  GetCefString(property.As<v8::String>(), name);
   return name;
 }
 
@@ -568,7 +636,7 @@ int PropertyToIndex(uint32_t index) {
 }
 
 // V8 Interceptor callbacks.
-// T == v8::Local<v8::String> for named property handlers and
+// T == v8::Local<v8::Name> for named property handlers and
 // T == uint32_t for indexed property handlers
 template <typename T>
 void InterceptorGetterCallbackImpl(
@@ -926,7 +994,7 @@ CefRefPtr<CefFrame> CefV8ContextImpl::GetFrame() {
 CefRefPtr<CefV8Value> CefV8ContextImpl::GetGlobal() {
   CEF_V8_REQUIRE_VALID_HANDLE_RETURN(NULL);
 
-  if (webkit_glue::IsScriptForbidden())
+  if (blink_glue::IsScriptForbidden())
     return nullptr;
 
   v8::Isolate* isolate = handle_->isolate();
@@ -939,7 +1007,7 @@ CefRefPtr<CefV8Value> CefV8ContextImpl::GetGlobal() {
 bool CefV8ContextImpl::Enter() {
   CEF_V8_REQUIRE_VALID_HANDLE_RETURN(false);
 
-  if (webkit_glue::IsScriptForbidden())
+  if (blink_glue::IsScriptForbidden())
     return false;
 
   v8::Isolate* isolate = handle_->isolate();
@@ -960,7 +1028,7 @@ bool CefV8ContextImpl::Enter() {
 bool CefV8ContextImpl::Exit() {
   CEF_V8_REQUIRE_VALID_HANDLE_RETURN(false);
 
-  if (webkit_glue::IsScriptForbidden())
+  if (blink_glue::IsScriptForbidden())
     return false;
 
   if (enter_count_ <= 0) {
@@ -1002,7 +1070,7 @@ bool CefV8ContextImpl::Eval(const CefString& code,
 
   CEF_V8_REQUIRE_VALID_HANDLE_RETURN(false);
 
-  if (webkit_glue::IsScriptForbidden())
+  if (blink_glue::IsScriptForbidden())
     return false;
 
   if (code.empty()) {
@@ -1023,10 +1091,9 @@ bool CefV8ContextImpl::Eval(const CefString& code,
   v8::TryCatch try_catch(isolate);
   try_catch.SetVerbose(true);
 
-  v8::MaybeLocal<v8::Value> func_rv =
-      webkit_glue::ExecuteV8ScriptAndReturnValue(
-          source, source_url, start_line, context, isolate, try_catch,
-          blink::AccessControlStatus::kNotSharableCrossOrigin);
+  v8::MaybeLocal<v8::Value> func_rv = blink_glue::ExecuteV8ScriptAndReturnValue(
+      source, source_url, start_line, context, isolate, try_catch,
+      blink::AccessControlStatus::kNotSharableCrossOrigin);
 
   if (try_catch.HasCaught()) {
     exception = new CefV8ExceptionImpl(context, try_catch.Message());
@@ -1047,7 +1114,7 @@ v8::Local<v8::Context> CefV8ContextImpl::GetV8Context() {
 blink::WebLocalFrame* CefV8ContextImpl::GetWebFrame() {
   CEF_REQUIRE_RT();
 
-  if (webkit_glue::IsScriptForbidden())
+  if (blink_glue::IsScriptForbidden())
     return nullptr;
 
   v8::HandleScope handle_scope(handle_->isolate());
@@ -1257,9 +1324,11 @@ CefRefPtr<CefV8Value> CefV8Value::CreateObject(
   v8::Local<v8::Object> obj;
   if (interceptor.get()) {
     v8::Local<v8::ObjectTemplate> tmpl = v8::ObjectTemplate::New(isolate);
-    tmpl->SetNamedPropertyHandler(
-        InterceptorGetterCallbackImpl<v8::Local<v8::String>>,
-        InterceptorSetterCallbackImpl<v8::Local<v8::String>>);
+    tmpl->SetHandler(v8::NamedPropertyHandlerConfiguration(
+        InterceptorGetterCallbackImpl<v8::Local<v8::Name>>,
+        InterceptorSetterCallbackImpl<v8::Local<v8::Name>>, nullptr, nullptr,
+        nullptr, v8::Local<v8::Value>(),
+        v8::PropertyHandlerFlags::kOnlyInterceptStrings));
 
     tmpl->SetIndexedPropertyHandler(InterceptorGetterCallbackImpl<uint32_t>,
                                     InterceptorSetterCallbackImpl<uint32_t>);
@@ -1308,6 +1377,35 @@ CefRefPtr<CefV8Value> CefV8Value::CreateArray(int length) {
 
   CefRefPtr<CefV8ValueImpl> impl = new CefV8ValueImpl(isolate);
   impl->InitObject(arr, tracker);
+  return impl.get();
+}
+
+// static
+CefRefPtr<CefV8Value> CefV8Value::CreateArrayBuffer(
+    void* buffer,
+    size_t length,
+    CefRefPtr<CefV8ArrayBufferReleaseCallback> release_callback) {
+  CEF_V8_REQUIRE_ISOLATE_RETURN(NULL);
+
+  v8::Isolate* isolate = GetIsolateManager()->isolate();
+  v8::HandleScope handle_scope(isolate);
+  v8::Local<v8::Context> context = isolate->GetCurrentContext();
+  if (context.IsEmpty()) {
+    NOTREACHED() << "not currently in a V8 context";
+    return NULL;
+  }
+
+  // Create a tracker object that will cause the user data reference to be
+  // released when the V8 object is destroyed.
+  V8TrackArrayBuffer* tracker =
+      new V8TrackArrayBuffer(isolate, buffer, release_callback);
+  v8::Local<v8::ArrayBuffer> ab = v8::ArrayBuffer::New(isolate, buffer, length);
+
+  // Attach the tracker object.
+  tracker->AttachTo(context, ab);
+
+  CefRefPtr<CefV8ValueImpl> impl = new CefV8ValueImpl(isolate);
+  impl->InitObject(ab, tracker);
   return impl.get();
 }
 
@@ -1566,6 +1664,16 @@ bool CefV8ValueImpl::IsArray() {
   if (type_ == TYPE_OBJECT) {
     v8::HandleScope handle_scope(handle_->isolate());
     return handle_->GetNewV8Handle(false)->IsArray();
+  } else {
+    return false;
+  }
+}
+
+bool CefV8ValueImpl::IsArrayBuffer() {
+  CEF_V8_REQUIRE_MLT_RETURN(false);
+  if (type_ == TYPE_OBJECT) {
+    v8::HandleScope handle_scope(handle_->isolate());
+    return handle_->GetNewV8Handle(false)->IsArrayBuffer();
   } else {
     return false;
   }
@@ -2091,6 +2199,60 @@ int CefV8ValueImpl::GetArrayLength() {
   return arr->Length();
 }
 
+CefRefPtr<CefV8ArrayBufferReleaseCallback>
+CefV8ValueImpl::GetArrayBufferReleaseCallback() {
+  CEF_V8_REQUIRE_OBJECT_RETURN(0);
+
+  v8::Isolate* isolate = handle_->isolate();
+  v8::HandleScope handle_scope(isolate);
+  v8::Local<v8::Context> context = isolate->GetCurrentContext();
+  if (context.IsEmpty()) {
+    NOTREACHED() << "not currently in a V8 context";
+    return NULL;
+  }
+  v8::Local<v8::Value> value = handle_->GetNewV8Handle(false);
+  if (!value->IsArrayBuffer()) {
+    NOTREACHED() << "V8 value is not an array buffer";
+    return NULL;
+  }
+
+  v8::Local<v8::Object> obj = value->ToObject();
+
+  V8TrackArrayBuffer* tracker = V8TrackArrayBuffer::Unwrap(context, obj);
+  if (tracker)
+    return tracker->GetReleaseCallback();
+
+  return NULL;
+}
+
+bool CefV8ValueImpl::NeuterArrayBuffer() {
+  CEF_V8_REQUIRE_OBJECT_RETURN(0);
+
+  v8::Isolate* isolate = handle_->isolate();
+  v8::HandleScope handle_scope(isolate);
+  v8::Local<v8::Context> context = isolate->GetCurrentContext();
+  if (context.IsEmpty()) {
+    NOTREACHED() << "not currently in a V8 context";
+    return false;
+  }
+
+  v8::Local<v8::Value> value = handle_->GetNewV8Handle(false);
+  if (!value->IsArrayBuffer()) {
+    NOTREACHED() << "V8 value is not an array buffer";
+    return false;
+  }
+  v8::Local<v8::Object> obj = value->ToObject();
+  v8::Local<v8::ArrayBuffer> arr = v8::Local<v8::ArrayBuffer>::Cast(obj);
+  if (!arr->IsNeuterable()) {
+    return false;
+  }
+  arr->Neuter();
+  V8TrackArrayBuffer* tracker = V8TrackArrayBuffer::Unwrap(context, obj);
+  tracker->Neuter();
+
+  return true;
+}
+
 CefString CefV8ValueImpl::GetFunctionName() {
   CefString rv;
   CEF_V8_REQUIRE_OBJECT_RETURN(rv);
@@ -2213,7 +2375,7 @@ CefRefPtr<CefV8Value> CefV8ValueImpl::ExecuteFunctionWithContext(
     v8::TryCatch try_catch(isolate);
     try_catch.SetVerbose(true);
 
-    v8::MaybeLocal<v8::Value> func_rv = webkit_glue::CallV8Function(
+    v8::MaybeLocal<v8::Value> func_rv = blink_glue::CallV8Function(
         context_local, func, recv, argc, argv, handle_->isolate());
 
     if (!HasCaught(context_local, try_catch) && !func_rv.IsEmpty()) {

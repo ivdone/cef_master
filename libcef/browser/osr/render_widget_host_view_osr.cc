@@ -17,6 +17,7 @@
 #include "base/callback_helpers.h"
 #include "base/command_line.h"
 #include "base/memory/ptr_util.h"
+#include "base/strings/utf_string_conversions.h"
 #include "cc/base/switches.h"
 #include "components/viz/common/features.h"
 #include "components/viz/common/frame_sinks/copy_output_request.h"
@@ -93,7 +94,7 @@ class CefCopyFrameGenerator {
                 &CefCopyFrameGenerator::CopyFromCompositingSurfaceHasResult,
                 weak_ptr_factory_.GetWeakPtr(), damage_rect));
 
-    request->set_area(gfx::Rect(view_->GetPhysicalBackingSize()));
+    request->set_area(gfx::Rect(view_->GetCompositorViewportPixelSize()));
     view_->GetRootLayer()->RequestCopyOfOutput(std::move(request));
   }
 
@@ -205,7 +206,8 @@ CefRenderWidgetHostViewOSR::CefRenderWidgetHostViewOSR(
     content::RenderWidgetHost* widget,
     CefRenderWidgetHostViewOSR* parent_host_view,
     bool is_guest_view_hack)
-    : background_color_(background_color),
+    : content::RenderWidgetHostViewBase(widget),
+      background_color_(background_color),
       frame_rate_threshold_us_(0),
 #if !defined(OS_MACOSX)
       compositor_widget_(gfx::kNullAcceleratedWidget),
@@ -335,10 +337,6 @@ void CefRenderWidgetHostViewOSR::SetSize(const gfx::Size& size) {}
 
 void CefRenderWidgetHostViewOSR::SetBounds(const gfx::Rect& rect) {}
 
-gfx::Vector2dF CefRenderWidgetHostViewOSR::GetLastScrollOffset() const {
-  return last_scroll_offset_;
-}
-
 gfx::NativeView CefRenderWidgetHostViewOSR::GetNativeView() const {
   return gfx::NativeView();
 }
@@ -439,6 +437,22 @@ bool CefRenderWidgetHostViewOSR::LockMouse() {
 }
 
 void CefRenderWidgetHostViewOSR::UnlockMouse() {}
+
+void CefRenderWidgetHostViewOSR::TakeFallbackContentFrom(
+    content::RenderWidgetHostView* view) {
+  DCHECK(!static_cast<RenderWidgetHostViewBase*>(view)
+              ->IsRenderWidgetHostViewChildFrame());
+  DCHECK(!static_cast<RenderWidgetHostViewBase*>(view)
+              ->IsRenderWidgetHostViewGuest());
+  CefRenderWidgetHostViewOSR* view_cef =
+      static_cast<CefRenderWidgetHostViewOSR*>(view);
+  SetBackgroundColor(view_cef->background_color());
+  if (GetDelegatedFrameHost() && view_cef->GetDelegatedFrameHost()) {
+    GetDelegatedFrameHost()->TakeFallbackContentFrom(
+        view_cef->GetDelegatedFrameHost());
+  }
+  host()->GetContentRenderingTimeoutFrom(view_cef->host());
+}
 
 void CefRenderWidgetHostViewOSR::DidCreateNewRendererCompositorFrameSink(
     viz::mojom::CompositorFrameSinkClient* renderer_compositor_frame_sink) {
@@ -664,7 +678,7 @@ gfx::Size CefRenderWidgetHostViewOSR::GetRequestedRendererSize() const {
   return GetDelegatedFrameHost()->GetRequestedRendererSize();
 }
 
-gfx::Size CefRenderWidgetHostViewOSR::GetPhysicalBackingSize() const {
+gfx::Size CefRenderWidgetHostViewOSR::GetCompositorViewportPixelSize() const {
   return gfx::ScaleToCeiledSize(GetRequestedRendererSize(),
                                 current_device_scale_factor_);
 }
@@ -727,11 +741,6 @@ gfx::Rect CefRenderWidgetHostViewOSR::GetBoundsInRootWindow() {
   return GetViewBounds();
 }
 
-content::RenderWidgetHostImpl*
-CefRenderWidgetHostViewOSR::GetRenderWidgetHostImpl() const {
-  return render_widget_host_;
-}
-
 viz::SurfaceId CefRenderWidgetHostViewOSR::GetCurrentSurfaceId() const {
   return GetDelegatedFrameHost()
              ? GetDelegatedFrameHost()->GetCurrentSurfaceId()
@@ -765,7 +774,9 @@ void CefRenderWidgetHostViewOSR::ImeSetComposition(
   for (const CefCompositionUnderline& line : underlines) {
     web_underlines.push_back(ui::ImeTextSpan(
         ui::ImeTextSpan::Type::kComposition, line.range.from, line.range.to,
-        line.color, line.thick ? true : false, line.background_color));
+        line.thick ? ui::ImeTextSpan::Thickness::kThick
+                   : ui::ImeTextSpan::Thickness::kThin,
+        line.color, line.background_color, std::vector<std::string>()));
   }
   gfx::Range range(replacement_range.from, replacement_range.to);
 
@@ -812,6 +823,31 @@ void CefRenderWidgetHostViewOSR::ImeCancelComposition() {
 
   // Stop Monitoring for composition updates after we are done.
   RequestImeCompositionUpdate(false);
+}
+
+void CefRenderWidgetHostViewOSR::SelectionChanged(const base::string16& text,
+                                                  size_t offset,
+                                                  const gfx::Range& range) {
+  RenderWidgetHostViewBase::SelectionChanged(text, offset, range);
+
+  if (!browser_impl_.get())
+    return;
+
+  CefString selected_text;
+  if (!range.is_empty() && !text.empty()) {
+    size_t pos = range.GetMin() - offset;
+    size_t n = range.length();
+    if (pos + n <= text.length())
+      selected_text = text.substr(pos, n);
+  }
+
+  CefRefPtr<CefRenderHandler> handler =
+      browser_impl_->GetClient()->GetRenderHandler();
+  if (handler.get()) {
+    CefRange cef_range(range.start(), range.end());
+    handler->OnTextSelectionChanged(browser_impl_.get(), selected_text,
+                                    cef_range);
+  }
 }
 
 void CefRenderWidgetHostViewOSR::SetNeedsBeginFrames(bool enabled) {
@@ -1000,7 +1036,7 @@ void CefRenderWidgetHostViewOSR::OnScreenInfoChanged() {
   // to send to the renderer, so it is required that BrowserCompositorMac be
   // updated first. Only notify RenderWidgetHostImpl of the update if any
   // properties it will query have changed.
-  if (browser_compositor_->UpdateNSViewAndDisplay())
+  if (UpdateNSViewAndDisplay())
     render_widget_host_->NotifyScreenInfoChanged();
 #else
   render_widget_host_->NotifyScreenInfoChanged();
@@ -1025,7 +1061,7 @@ void CefRenderWidgetHostViewOSR::Invalidate(
     return;
   }
 
-  InvalidateInternal(gfx::Rect(GetPhysicalBackingSize()));
+  InvalidateInternal(gfx::Rect(GetCompositorViewportPixelSize()));
 }
 
 void CefRenderWidgetHostViewOSR::SendKeyEvent(
@@ -1333,7 +1369,7 @@ void CefRenderWidgetHostViewOSR::ResizeRootLayer() {
   PlatformResizeCompositorWidget(size_in_pixels);
 
 #if defined(OS_MACOSX)
-  bool resized = browser_compositor_->UpdateNSViewAndDisplay();
+  bool resized = UpdateNSViewAndDisplay();
 #else
   bool resized = true;
   GetDelegatedFrameHost()->WasResized(local_surface_id_, size,
